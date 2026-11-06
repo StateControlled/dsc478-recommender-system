@@ -66,15 +66,14 @@ Project Link: [GitHub](https://github.com/StateControlled/dsc478-recommender-sys
 
 ---
 
-### 6.1 Data Source
+### 6.1 Primary Data
 
-Mengting Wan, Julian McAuley, "Item Recommendation on Monotonic Behavior Chains", in RecSys'18.
-
+Mengting Wan, Julian McAuley, "Item Recommendation on Monotonic Behavior Chains", in RecSys'18.<br>
 Mengting Wan, Rishabh Misra, Ndapa Nakashole, Julian McAuley, "Fine-Grained Spoiler Detection from Large-Scale Review Corpora", in ACL'19.
 
 Website: https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html
 
-Some code is adapted from https://github.com/MengtingWan/goodreads according to the terms of the [Apache License 2.0](http://www.apache.org/licenses/)
+Some code is adapted from https://github.com/MengtingWan/goodreads as allowed by the [Apache License 2.0](http://www.apache.org/licenses/)
 
 
 ### 6.2 AI Usage
