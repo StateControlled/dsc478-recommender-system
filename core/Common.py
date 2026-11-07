@@ -1,6 +1,5 @@
 # Contains some common utility methods.
 
-
 def read_file(file_name: str) -> list[str]:
     """
     Reads and returns the contents of a text file, stripping newlines and extra spaces first.

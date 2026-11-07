@@ -63,11 +63,21 @@ def _set_file_urls(file_name_type_mapping: dict[str, str]) -> dict[str, str]:
         elif file_type == "byGenre":
             url: str = "https://mcauleylab.ucsd.edu/public_datasets/gdrive/goodreads/byGenre/" + file_name
             file_name_url_mapping[file_name] = url
+        # Mappings for user ids or book ids.
+        elif file_type == "book_id_map" or file_type == "user_id_map":
+            url: str = "https://mcauleylab.ucsd.edu/public_datasets/gdrive/goodreads/" + file_name
+            file_name_url_mapping[file_name] = url
 
     return file_name_url_mapping
 
 
-def _define_filenames(genre_list_file: str) -> list[DataObject]:
+def _define_filenames_maps(map_list_file: str) -> list[str]:
+    temp: pd.DataFrame = pd.read_csv(map_list_file, index_col=False)
+
+    return temp["name"].tolist()
+
+
+def _define_filenames_genre(genre_list_file: str) -> list[DataObject]:
     """
     Sets the filenames that will be downloaded later.
 
@@ -133,36 +143,34 @@ def _do_download(out_dir: str, target: str, file_name_url_mapping: dict[str, str
     return _download_file(target, output_path, file_name_url_mapping)
 
 
-def _download_mappings(mappings: str, out: str) -> None:
-    temp: list[str] = Common.read_file(mappings)
-    return
-
-
 def main(argv: list[str] | None = None) -> int:
     """
     Downloads target data files from the web and saves to local disk.
     """
 
     argument_parser = argparse.ArgumentParser(description="Downloads target data files from the web and saves to local disk.")
-    argument_parser.add_argument("--out", default="data/archive/", help="Output directory")
-    argument_parser.add_argument("--genres", default="data-download/targets.txt", help="List of target genres to download data files for.")
-    argument_parser.add_argument("--dataset_names", default="data-download/dataset_names.csv", help="List of dataset names.")
-    argument_parser.add_argument("--maps", default="data-download/maps.csv", help="List of additional files that contain more information about the dataset.")
+    argument_parser.add_argument("--out",           default="data/archive/",                    help="Output directory")
+    argument_parser.add_argument("--genres",        default="data-download/targets.txt",        help="List of target genres to download data files for.")
+    argument_parser.add_argument("--dataset_names", default="data-download/dataset_names.csv",  help="List of dataset names.")
+    argument_parser.add_argument("--mapping_names", default="data-download/maps.csv",           help="List of additional files that contain more information about the dataset.")
+    argument_parser.add_argument("--maps-out",      default="data/maps/",                       help="Output directory for book id and user id mappings.")
 
     args = argument_parser.parse_args(args=argv)
 
     out_dir: str = args.out
     target_list: str = args.genres
     dataset: str = args.dataset_names
-    # mappings: str = args.maps
+    mappings: str = args.mapping_names
+    mapping_out_dir: str = args.maps_out
 
     # get list of items to download
     # targets is a list of file names (not URLs)
-    targets: list[DataObject] = _define_filenames(target_list)
+    genre_targets: list[DataObject] = _define_filenames_genre(target_list)
+    map_targets: list[str] = _define_filenames_maps(mappings)
     # _download_mappings(mappings, "data/")
 
     print("Target files:")
-    for t in targets:
+    for t in genre_targets:
         print(f"{t.books_file}")
         print(f"{t.interactions_file}")
         print(f"{t.reviews_file}")
@@ -170,23 +178,30 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("Downloading data...")
 
-    file_name_url_mapping: dict[str, str] = _set_url_map(dataset)
+    genre_url_mapping: dict[str, str] = _set_url_map(dataset)
+    mapping_url: dict[str, str] = _set_url_map(mappings)
 
-    # create save directory
+    # create save directories
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+    if not os.path.exists(mapping_out_dir):
+        os.makedirs(mapping_out_dir)
 
     # download data
     count: int = 0
     total: int = 0
-    for target in targets:
+    for target in genre_targets:
         total += 3
-        count += _do_download(out_dir, target.books_file, file_name_url_mapping)
-        count += _do_download(out_dir, target.interactions_file, file_name_url_mapping)
-        count += _do_download(out_dir, target.reviews_file, file_name_url_mapping)
+        count += _do_download(out_dir, target.books_file, genre_url_mapping)
+        count += _do_download(out_dir, target.interactions_file, genre_url_mapping)
+        count += _do_download(out_dir, target.reviews_file, genre_url_mapping)
+
+    for mapping in map_targets:
+        total += 1
+        count += _do_download(mapping_out_dir, mapping, mapping_url)
 
     print()
-    print(f"Downloaded {count} of {total} files and saved to '{out_dir}'")
+    print(f"Downloaded {count} of {total} files.")
     print("Download complete!")
 
     return 0
