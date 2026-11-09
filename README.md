@@ -32,9 +32,9 @@ Download the data
 </pre>
 This step only needs to be executed once.
 
-Do basic analysis
+Start analysis and initialize recommender system
 <pre>
-    python -m analysis.Analyze --input data/archive/ --genres data-download/targets.txt
+    python -m recommender.Recommender --input data/archive/ --genres data-download/targets.txt
 </pre>
 
 ## 3. Usage

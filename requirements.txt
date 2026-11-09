@@ -4,3 +4,4 @@ requests
 scipy
 ipython
 scikit-learn
+matplotlib

@@ -4,7 +4,7 @@
 extra/
 
 data/
-analysis/__pycache__/
+recommender/__pycache__/
 core/__pycache__/
 data-download/__pycache__/
 recommender/__pycache__/

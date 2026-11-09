@@ -1,19 +1,19 @@
 import argparse
 import os
 import sys
-import random
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from core import Common
 
-from IPython.display import display
+from IPython.core.display_functions import display
 
 
 def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, write_row_names: bool) -> None:
     """
-    Save the dataframes to local disk.
+    Save the dataframes to local disk as a csv.
+
     :param data_frame_to_save:  the DataFrame to save to disk
     :param filename:            the name of the saved file
     :param out_dir:             output directory
@@ -23,7 +23,10 @@ def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    data_frame_to_save.to_csv(os.path.join(out_dir, filename), index=write_row_names)
+    save_path = os.path.join(out_dir, filename)
+
+    data_frame_to_save.to_csv(save_path, index=write_row_names)
+    print(f"Saved file to {save_path}")
 
 
 def _print_info(frame: pd.DataFrame) -> tuple[int, int, int, float]:
@@ -58,7 +61,11 @@ def _print_info(frame: pd.DataFrame) -> tuple[int, int, int, float]:
     books_per_user = frame.groupby('user_id')['book_id'].nunique()
 
     # The average number of books read
+    min_books = books_per_user.min()
+    max_books = books_per_user.max()
     avg_books_read: float = books_per_user.mean()
+    print(f"Min books: {min_books}")
+    print(f"Max books: {max_books}")
     print(f"Average books read per user: {avg_books_read:.2f}")
     print()
 
@@ -82,10 +89,11 @@ def _get_interactions(input_dir: str, genre: str, drop_columns=None, max_rows: i
     The frame returns has columns 'user_id' (str, contains a user id as hex string), 'book_id' (int, contains a unique id for each book),
     'rating' (int, a rating 1-5 given to the book by the user), and 'is_reviewed' (int, 0 or 1; 1 if the user left a written review for the book)
 
-    :param genre:           the genre
-    :param input_dir:       directory containing the zip files
-    :param drop_columns:    columns to be dropped from the DataFrame
-    :param max_rows:        the maximum number of rows to read from the file
+    :param genre:           the genre.
+    :param input_dir:       directory containing the zip files.
+    :param drop_columns:    columns to be dropped from the DataFrame.
+    :param max_rows:        the maximum number of rows to read from the file.
+    :param min_read:        a minimum number of books, users with fewer read books will be dropped.
     :return: a DataFrame containing interaction data that has had some preliminary cleaning.
     """
     # Interactions are the most important for what I want to do
@@ -138,7 +146,7 @@ def _initial_frame(genre: str,
                    in_dir: str,
                    max_rows_processed: int,
                    columns_to_drop: list[str],
-                   print_intermediate: bool=False) -> tuple[str, pd.DataFrame]:
+                   print_intermediate: bool=False) -> tuple[str, pd.DataFrame, pd.DataFrame]:
     """
     Returns the genre, the dataframe, number of unique users, and number of unique books.
 
@@ -152,87 +160,64 @@ def _initial_frame(genre: str,
 
     frame: pd.DataFrame = _get_interactions(in_dir, genre, drop_columns=columns_to_drop, max_rows=max_rows_processed)  # real length = 34,919,255
 
+    book_ids = frame["book_id"]
+    book_ids = book_ids.to_frame()
+    book_ids["genre"] = genre
+
     if print_intermediate:
         _print_info(frame)
 
-    return genre, frame
+    return genre, frame, book_ids
 
 
-def generate_test_data(users_to_generate: int,
-                       average_read: float,
-                       user_vectors: pd.DataFrame,
-                       min_read:int=8,
-                       max_read:int=200,
-                       min_rating: int=1,
-                       max_rating:int=5) -> pd.DataFrame:
+def second_pass_filter(frame: pd.DataFrame, min_read: int) -> pd.DataFrame:
     """
-    Generates some random test user vectors.
+    Once all the data is compiled, do a second pass to filter out users that do not meet requirements.
 
-    :param users_to_generate:   number of test users to generate
-    :param average_read:        average number of books read per user
-    :param user_vectors:        current user vectors
-    :param min_read:
-    :param max_read:
-    :param max_rating:          minimum rating that can be generated
-    :param min_rating:          maximum rating that can be generated
+    :param frame:       the DataFrame containing all the compiled data
+    :param min_read:    the minimum number of books read per user
+    :return:
+    """
+
+    df_filtered = frame[frame.groupby('user_id')['book_id'].transform('nunique') >= min_read]
+
+    return df_filtered
+
+
+def _merge_genre_maps(book_genre_maps: list[tuple[str, pd.DataFrame]]) -> pd.DataFrame:
+    """
+    Merge the book_id x genre maps DataFrames and remove duplicates (exact duplicates across all rows).
+    :param book_genre_maps:
     :return: a DataFrame
     """
 
-    all_book_ids = user_vectors.columns
+    frame = pd.concat(book_genre_maps, ignore_index=True)
 
-    data_rows: list = []
-    user_index: list = []
-
-    # randomly choose how many books the test user has read,
-    # and the rating they gave to the book.
-    for i in range(users_to_generate):
-        user_vec: list[int] = [0 for _ in range(len(all_book_ids))]
-
-        if random.randint(min_read, max_read) > int(average_read):
-            read_count = int(average_read)
-        else:
-            read_count = random.randint(min_read, max_read)
-
-        for j in range(read_count):
-            index_pos = random.randint(0, len(all_book_ids) - 1)
-            rating = random.randint(min_rating, max_rating)
-            user_vec[index_pos] = rating
-
-        rows = dict(zip(all_book_ids, user_vec))
-        user_index.append(f"test_user_{i}")
-
-        data_rows.append(rows)
-
-    print(f"Generated {users_to_generate} test users")
-    test_frame: pd.DataFrame = pd.DataFrame(data_rows, columns=user_vectors.columns, index=user_index)
-    test_frame.index.name = "user_id"
-    test_frame.columns.name = "book_id"
-
-    if test_frame.shape[0] > 20:
-        display(test_frame.head(20))
-    else:
-        display(test_frame)
-
-    return test_frame
+    return frame.drop_duplicates(keep='last')
 
 
-def analyze(genre_list: list[str], in_dir: str) -> tuple[pd.DataFrame, pd.DataFrame, int, int, int, float]:
+def compile_and_analyze(genre_list: list[str], in_dir: str, min_user_read: int) -> tuple[pd.DataFrame, pd.DataFrame, int, int, int, float, pd.DataFrame]:
     unnecessary_columns = ["review_id", "date_added", "date_updated", "read_at", "started_at"]
 
     temp_frame_list: list[pd.DataFrame] = []
+    book_genre_maps: list[pd.DataFrame] = []
 
     # get data for each genre to compile it later
     for book_genre in genre_list:
-        genre, frame = _initial_frame(book_genre,
+        genre, frame, book_genre_map = _initial_frame(book_genre,
                                       in_dir,
                                       columns_to_drop=unnecessary_columns,
-                                      max_rows_processed=20000)
+                                      max_rows_processed=50000)
 
         temp_frame_list.append(frame)
+        book_genre_maps.append(book_genre_map)
 
     # this frame has all the combined data
     complete_frame: pd.DataFrame = pd.concat(temp_frame_list, ignore_index=True)
+    complete_frame = second_pass_filter(complete_frame, min_user_read)
     user_count, book_count, genre_count, avg_books_read = _print_info(complete_frame)
+
+    master_book_genre_map = _merge_genre_maps(book_genre_maps)
 
     # create vector for each user
     # table format:
@@ -252,11 +237,7 @@ def analyze(genre_list: list[str], in_dir: str) -> tuple[pd.DataFrame, pd.DataFr
     display(vectors.head(10))
     print()
 
-    return vectors, complete_frame, user_count, book_count, genre_count, avg_books_read
-
-
-def knn():
-    pass
+    return vectors, complete_frame, user_count, book_count, genre_count, avg_books_read, master_book_genre_map
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -264,7 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--genres", default="data-download/targets.txt", help="Path to a file containing a list of genres.")
     ap.add_argument("--input", default="data/archive", help="Source directory containing data to analyze.")
     ap.add_argument("--out", default="data/processed/", help="Output directory")
-    ap.add_argument("--gen-tests", default=16, help="Number of test users to generate")
+    # ap.add_argument("--gen-tests", default=16, help="Number of test users to generate")
+    ap.add_argument("--min-read", default=30, help="Minimum number of books read per user")
+    # ap.add_argument("--max-read", default=2000, help="Maximum number of books read per user")
     ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, help="Whether to save outputs to disk")
 
     args = ap.parse_args(args=argv)
@@ -272,28 +255,38 @@ def main(argv: list[str] | None = None) -> int:
     genres: str = args.genres
     in_dir: str = args.input
     out_dir: str = args.out
-    test_user_count = args.gen_tests
+    # test_user_count: int = args.gen_tests
     save_output: bool = args.save_output
+    min_read_books: int = args.min_read
+    # max_read_books: int = args.max_read
 
     genre_list = Common.read_file(genres)
 
     ################################################
 
-    user_vectors, compiled_data, user_count, book_count, genre_count, avg_books_read = analyze(genre_list, in_dir)
+    user_vectors, compiled_data, user_count, book_count, genre_count, avg_books_read, book_genre_map = compile_and_analyze(genre_list, in_dir, min_read_books)
 
-    if test_user_count > 0:
-        test_data = generate_test_data(test_user_count, avg_books_read, user_vectors)
-        if save_output:
-            save_to_disk(test_data, "test_data.csv", out_dir, True)
+    # if test_user_count > 0:
+    #     test_data = TestData.generate_test_data(test_user_count, avg_books_read, user_vectors, min_read=min_read_books, max_read=max_read_books)
+    #     if save_output:
+    #         save_to_disk(test_data, "test_data.csv", out_dir, True)
 
     if save_output:
         save_to_disk(compiled_data, "compiled_data.csv", out_dir, False)
         save_to_disk(user_vectors , "user_vectors.csv" , out_dir, True)
 
+    # always save map for future use
+    save_to_disk(book_genre_map, f"book_genre_map.csv", out_dir, False)
+
     ################################################
 
-    TARGET = user_vectors[[36065344]]
-    USER_VECTORS = user_vectors.drop([36065344], axis=1)
+
+
+    ################################################
+
+    target_id = 36065344
+    TARGET = user_vectors[[target_id]]
+    USER_VECTORS = user_vectors.drop([target_id], axis=1)
     X_TRAIN, X_TEST, Y_TRAIN, Y_TEST = train_test_split(USER_VECTORS, TARGET, test_size=0.2, random_state=42)
 
     print(f"X_TRAIN: {X_TRAIN.shape}, X_TEST: {X_TEST.shape}")
@@ -306,8 +299,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    pd.options.display.float_format = '{:,.5f}'.format
-    random.seed(61324097)
+    pd.options.display.float_format = '{:,.2f}'.format
 
     # pd.set_option("display.max_rows", None)
     # pd.set_option("display.max_columns", None)
