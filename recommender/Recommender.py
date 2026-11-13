@@ -3,7 +3,6 @@ import os
 import sys
 
 import pandas as pd
-from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 
 from core import Common
@@ -74,9 +73,9 @@ def _analysis(frame: pd.DataFrame, book_ids: pd.DataFrame, user_ids: pd.DataFram
     return unique_user_count, unique_book_count, unique_genre_count, avg_books_read
 
 
-def _get_books_and_users(user_book_rating_matrix: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _get_books_and_users(user_book_rating_matrix: pd.DataFrame, compiled_data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Separate unique user ids and unique book ids
+    Separate unique user ids and unique book ids. Re-index the user vectors matrix to align
 
     :param user_book_rating_matrix: a matrix showing ratings for each book by user
     """
@@ -88,7 +87,7 @@ def _get_books_and_users(user_book_rating_matrix: pd.DataFrame) -> tuple[pd.Data
     print(type(user_ids))
     print()
 
-    # book_ids = frame[['book_id', 'genre']].drop_duplicates().reset_index(drop=True)
+    book_genre_map = compiled_data[['book_id', 'genre']].drop_duplicates().reset_index(drop=True)
     book_ids = user_book_rating_matrix.columns.to_frame().reset_index(drop=True)
     print(book_ids)
     print(type(book_ids))
@@ -97,7 +96,7 @@ def _get_books_and_users(user_book_rating_matrix: pd.DataFrame) -> tuple[pd.Data
     matrix.columns = book_ids.index
     matrix.index = user_ids.index
 
-    return book_ids, user_ids, matrix
+    return book_ids, user_ids, matrix, book_genre_map
 
 
 def _second_pass(frame: pd.DataFrame, min_read: int) -> pd.DataFrame:
@@ -114,7 +113,7 @@ def _second_pass(frame: pd.DataFrame, min_read: int) -> pd.DataFrame:
     return df_filtered
 
 
-def _get_interactions(input_dir: str, genre: str, drop_columns=None, max_rows: int = 10000) -> pd.DataFrame:
+def _get_interactions(input_dir: str, genre: str, drop_columns: list[str] | None=None, max_rows: int=10000) -> pd.DataFrame:
     """
     The frame returns has columns 'user_id' (str, contains a user id as hex string), 'book_id' (int, contains a unique id for each book),
     'rating' (int, a rating 1-5 given to the book by the user), and 'is_reviewed' (int, 0 or 1; 1 if the user left a written review for the book)
@@ -171,10 +170,7 @@ def _get_interactions(input_dir: str, genre: str, drop_columns=None, max_rows: i
     return df.reset_index(drop=True)
 
 
-def _initial_frame(genre: str,
-                   in_dir: str,
-                   max_rows_processed: int,
-                   columns_to_drop: list[str]) -> DataFrame:
+def _initial_frame(genre: str, in_dir: str, max_rows_processed: int, columns_to_drop: list[str]) -> pd.DataFrame:
     """
     Returns a DataFrame containing the raw data
 
@@ -195,7 +191,7 @@ def compile_and_analyze(genre_list: list[str],
                         in_dir: str,
                         min_user_read: int,
                         max_rows_to_read: int=50000,
-                        unnecessary_columns: list[str] | None=None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                        unnecessary_columns: list[str] | None=None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # unnecessary_columns = ["review_id", "date_added", "date_updated", "read_at", "started_at"]
 
     if unnecessary_columns is None:
@@ -226,7 +222,7 @@ def compile_and_analyze(genre_list: list[str],
     vectors = vectors.astype(int)
 
     # do additional processing, separate book ids and user ids
-    book_ids, user_ids, user_vectors = _get_books_and_users(vectors)
+    book_ids, user_ids, user_vectors, book_genre_map = _get_books_and_users(vectors, complete_frame)
 
     user_count, book_count, genre_count, avg_books_read = _analysis(complete_frame, book_ids, user_ids)
 
@@ -238,7 +234,10 @@ def compile_and_analyze(genre_list: list[str],
     display(user_vectors.head(10))
     print()
 
-    return user_vectors, complete_frame, book_ids, user_ids
+    return user_vectors, complete_frame, book_ids, user_ids, book_genre_map
+
+
+#######################################################################################################################
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -249,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     # ap.add_argument("--gen-tests", default=16, help="Number of test users to generate")
     ap.add_argument("--min-read", default=30, help="Minimum number of books read per user")
     # ap.add_argument("--max-read", default=2000, help="Maximum number of books read per user")
-    ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, help="Whether to save outputs to disk")
+    ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, default=True, help="Whether to save outputs to disk")
 
     args = ap.parse_args(args=argv)
 
@@ -265,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ################################################
 
-    user_vectors, compiled_data, book_ids, user_ids = compile_and_analyze(genre_list, in_dir, min_read_books)
+    user_vectors, compiled_data, book_ids, user_ids, book_genre_map = compile_and_analyze(genre_list, in_dir, min_read_books)
 
     # if test_user_count > 0:
     #     test_data = TestData.generate_test_data(test_user_count, avg_books_read, user_vectors, min_read=min_read_books, max_read=max_read_books)
@@ -273,24 +272,25 @@ def main(argv: list[str] | None = None) -> int:
     #         save_to_disk(test_data, "test_data.csv", out_dir, True)
 
     if save_output:
-        Common.save_to_disk(compiled_data, "compiled_data.csv", out_dir, False)
-        Common.save_to_disk(user_vectors , "user_vectors.csv" , out_dir, True)
-
-    # always save map for future use
-    Common.save_to_disk(book_ids, f"book_genre_map.csv", out_dir, True)
-
-    ################################################
-
-    target_id = 512
-    TARGET = user_vectors[[target_id]]
-    USER_VECTORS = user_vectors.drop([target_id], axis=1)
-    X_TRAIN, X_TEST, Y_TRAIN, Y_TEST = train_test_split(USER_VECTORS, TARGET, test_size=0.2, random_state=42)
-
-    print(f"X_TRAIN: {X_TRAIN.shape}, X_TEST: {X_TEST.shape}")
-    print(f"Y_TRAIN: {Y_TRAIN.shape}, Y_TEST: {Y_TEST.shape}")
+        Common.save_to_disk(book_genre_map, filename="book_genre_map.csv",  out_dir=out_dir, index_=True,   header_=True)
+        Common.save_to_disk(book_ids,       filename="book_id_map.csv",     out_dir=out_dir, index_=True,   header_=True)
+        Common.save_to_disk(compiled_data,  filename="compiled_data.csv",   out_dir=out_dir, index_=False,  header_=True)
+        Common.save_to_disk(user_ids,       filename="user_id_map.csv",     out_dir=out_dir, index_=True,   header_=True)
+        Common.save_to_disk(user_vectors ,  filename="user_vectors.csv",    out_dir=out_dir, index_=False,  header_=False)
 
     ################################################
 
+    # target_id = 512
+    # TARGET = user_vectors[[target_id]]
+    # USER_VECTORS = user_vectors.drop([target_id], axis=1)
+    # X_TRAIN, X_TEST, Y_TRAIN, Y_TEST = train_test_split(USER_VECTORS, TARGET, test_size=0.2, random_state=42)
+    #
+    # print(f"X_TRAIN: {X_TRAIN.shape}, X_TEST: {X_TEST.shape}")
+    # print(f"Y_TRAIN: {Y_TRAIN.shape}, Y_TEST: {Y_TEST.shape}")
+
+    ################################################
+
+    print()
     print("Complete!")
     return 0
 

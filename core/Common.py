@@ -33,7 +33,7 @@ def merge_frames(frame_list: list[pd.DataFrame]) -> pd.DataFrame:
     return frame.drop_duplicates(keep='last')
 
 
-def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, index_: bool) -> None:
+def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, index_: bool, header_: bool) -> None:
     """
     Save the dataframes to local disk as a csv.
 
@@ -41,6 +41,7 @@ def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, 
     :param filename:            the name of the saved file
     :param out_dir:             output directory
     :param index_:              corresponds to 'index' in DataFrame.to_csv()
+    :param header:              corresponds to 'header' in DataFrame.to_csv()
     """
 
     if not os.path.exists(out_dir):
@@ -48,5 +49,5 @@ def save_to_disk(data_frame_to_save: pd.DataFrame, filename: str, out_dir: str, 
 
     save_path = os.path.join(out_dir, filename)
 
-    data_frame_to_save.to_csv(save_path, index=index_)
+    data_frame_to_save.to_csv(save_path, index=index_, header=header_)
     print(f"Saved file to {save_path}")
