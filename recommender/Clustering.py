@@ -1,15 +1,9 @@
-# data/processed/
-# user_vectors.csv
-
-# compiled_data.csv
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-import sys
 from IPython.core.display_functions import display
 
 RANDOM_STATE=42
@@ -27,8 +21,10 @@ def cluster_sizes(clusters, data):
     return size
 
 
-def run():
-    data: pd.DataFrame = pd.read_csv("../data/processed/user_vectors.csv", index_col=0)
+def run(filename: str):
+    # "../data/processed/user_vectors.csv"
+    # user_vectors.csv has no row or column headers
+    data: pd.DataFrame = pd.read_csv(filename, index_col=False, header=None)
 
     # users x books
     display(data.head(10))
@@ -89,12 +85,3 @@ def run():
         plt.tight_layout()
         # pl.savefig('elbow-kmeans.png', dpi=300)
         plt.show()
-
-
-def main() -> int:
-    run()
-
-    return 0
-
-if __name__ == "__main__":
-    sys.exit(main())

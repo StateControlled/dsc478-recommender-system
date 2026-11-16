@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import numpy as np
 
-from core import Common
+from recommender import Common
 
 from IPython.core.display_functions import display
 
@@ -330,18 +330,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", default="data/processed/", help="Output directory")
     ap.add_argument("--min-read", default=20, help="Minimum number of books read per user")
     ap.add_argument("--max-books", default=500, help="Maximum number of unique books to consider")
-    ap.add_argument("--max-lines", default=100000, help="Maximum number of lines to read")
-    ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, default=True, help="Whether to save outputs to disk")
+    ap.add_argument("--max-lines", default=500000, help="Maximum number of lines to read")
+    # ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, default=True, help="Whether to save outputs to disk.")
 
     args = ap.parse_args(args=argv)
 
     genres: str = args.genres
     in_dir: str = args.input
     out_dir: str = args.out
-    save_output: bool = args.save_output
     min_read_books: int = args.min_read
     max_lines_to_read: int = args.max_lines
     max_unique: int = args.max_books
+    # save_output: bool = args.save_output
 
     genre_list = Common.read_file(genres)
 
@@ -356,23 +356,43 @@ def main(argv: list[str] | None = None) -> int:
     # similarity_matrix = user_vectors.corr(method="pearson")
     similarity_matrix = _build_similarity_matrix(np.asmatrix(user_vectors))
 
-    if save_output:
-        Common.save_to_disk(book_genre_map,     filename="book_genre_map.csv",      out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(book_ids,           filename="book_id_map.csv",         out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(compiled_data,      filename="compiled_data.csv",       out_dir=out_dir, index_=False,  header_=True)
-        Common.save_to_disk(user_ids,           filename="user_id_map.csv",         out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(user_vectors ,      filename="user_vectors.csv",        out_dir=out_dir, index_=False,  header_=False)
-        Common.save_to_disk(similarity_matrix,  filename="similarity_matrix.csv",   out_dir=out_dir, index_=False,  header_=False)
-
-    ################################################
-
-    # target_id = 512
-    # TARGET = user_vectors[[target_id]]
-    # USER_VECTORS = user_vectors.drop([target_id], axis=1)
-    # X_TRAIN, X_TEST, Y_TRAIN, Y_TEST = train_test_split(USER_VECTORS, TARGET, test_size=0.2, random_state=42)
-    #
-    # print(f"X_TRAIN: {X_TRAIN.shape}, X_TEST: {X_TEST.shape}")
-    # print(f"Y_TRAIN: {Y_TRAIN.shape}, Y_TEST: {Y_TEST.shape}")
+    # if save_output:
+    Common.save_to_disk(book_genre_map,
+                        filename="book_genre_map.csv",
+                        description="book ids and genre",
+                        out_dir=out_dir,
+                        index_=True,
+                        header_=True)
+    Common.save_to_disk(book_ids,
+                        filename="book_id_map.csv",
+                        description="Index and book ids",
+                        out_dir=out_dir,
+                        index_=True,
+                        header_=True)
+    Common.save_to_disk(compiled_data,
+                        filename="compiled_data.csv",
+                        description="Compiled data: user id, books id, rating, genre",
+                        out_dir=out_dir,
+                        index_=False,
+                        header_=True)
+    Common.save_to_disk(user_ids,
+                        filename="user_id_map.csv",
+                        description="Index and user ids",
+                        out_dir=out_dir,
+                        index_=True,
+                        header_=True)
+    Common.save_to_disk(user_vectors,
+                        filename="user_vectors.csv",
+                        description="User x book matrix",
+                        out_dir=out_dir,
+                        index_=False,
+                        header_=False)
+    Common.save_to_disk(similarity_matrix,
+                        filename="similarity_matrix.csv",
+                        description="Book similarity matrix",
+                        out_dir=out_dir,
+                        index_=False,
+                        header_=False)
 
     ################################################
 

@@ -4,6 +4,8 @@ import sys
 import pandas as pd
 import numpy as np
 
+from recommender import Clustering
+
 from IPython.core.display_functions import display
 
 
@@ -14,12 +16,12 @@ from IPython.core.display_functions import display
 #######################################################################################################################
 
 
-def cross_validate_user(user_vectors: np.matrix,
-                        similarity_matrix: np.ndarray,
-                        user: int,
-                        k: int,
-                        test_ratio: float,
-                        seed=42) -> tuple[float, int]:
+def _cross_validate_user(user_vectors: np.matrix,
+                         similarity_matrix: np.ndarray,
+                         user: int,
+                         k: int,
+                         test_ratio: float,
+                         seed=42) -> tuple[float, int]:
     """
     The cross_validate_user function performs evaluation on a single user based on
     the test_ratio: with test_ratio = 0.2, a randomly selected 20 percent of rated
@@ -86,7 +88,7 @@ def cross_validate_user(user_vectors: np.matrix,
     return error_u, count_u
 
 
-def test(user_vectors: np.matrix, similarity_matrix: np.ndarray, test_ratio: float, k: int, seed=42) -> float:
+def _test(user_vectors: np.matrix, similarity_matrix: np.ndarray, test_ratio: float, k: int, seed=42) -> float:
     """
     :param user_vectors:     the user-item ratings matrix, with 0 for a missing rating
     :param test_ratio:  the share of this user's ratings to withhold as test data
@@ -100,12 +102,16 @@ def test(user_vectors: np.matrix, similarity_matrix: np.ndarray, test_ratio: flo
 
     # iterate over all users
     for user_id in range(np.shape(user_vectors)[0]):
-        err, count = cross_validate_user(user_vectors, similarity_matrix, user_id, k, test_ratio, seed)
+        err, count = _cross_validate_user(user_vectors, similarity_matrix, user_id, k, test_ratio, seed)
 
         total_error += err
         total_cases += count
 
     return total_error / total_cases # MAE
+
+
+def evaluate():
+    pass
 
 
 #######################################################################################################################
@@ -210,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--list-user-ids", action=argparse.BooleanOptionalAction, help="Print list of user ids")
     ap.add_argument("--list-book-ids", action=argparse.BooleanOptionalAction, help="Print list of book ids")
     ap.add_argument("--print-matrix", action=argparse.BooleanOptionalAction, help="Prints the user x book rating matrix")
+
+    ap.add_argument("--evaluate", action=argparse.BooleanOptionalAction, help="Run evaluation metrics")
 
     args = ap.parse_args(args=argv)
 

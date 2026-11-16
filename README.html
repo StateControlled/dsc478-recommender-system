@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>DSC 478 Final Project</title>
+    </head>
+
+    <body>
+        <h1>DSC 478 Final Project</h1>
+
+        <p>
+            DePaul University<br>
+            DSC 478 Programming Machine Learning Applications<br>
+            2026-2027 Autumn
+        </p>
+
+        <section>
+            <h2>1. About</h2>
+
+            <hr>
+
+            The objective of the project is to create a collaborative recommender system that will recommend books,
+            using data sourced from <a href="https://www.goodreads.com/">Goodreads</a>,
+        </section>
+
+        <section>
+            <h2>2. Run</h2>
+
+            <hr>
+
+            <h3>2.1 Setup</h3>
+
+            Install all required libraries:
+            <pre>
+                python -m pip install -r requirements.txt
+            </pre>
+            Requires Python 3.12 or later.<br>
+            No bundled virtual environment.
+
+            <h3>2.2 Data Analysis</h3>
+
+            The file <i>data-download/targets.txt</i> contains a list of genres that will be targeted for analysis and for which relevant data will be downloaded.<br>
+            Valid genres are 'children', 'comics_graphic', 'fantasy_paranormal', 'history_biography', 'mystery_thriller_crime', 'poetry', 'romance', and 'young_adult'.
+
+            <h4>Download the data</h4>
+
+            Download the data for each targeted genre from the <a href="https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html">source</a> and save to local disk.
+            This step only needs to be executed once.
+
+            <pre>
+                python -m data-download.DataDownload --out data/archive/ --genres data-download/targets.txt
+            </pre>
+
+            <h4>Start analysis and initialize recommender system</h4>
+
+            <pre>
+                python -m recommender.Analyze --input data/archive/ --genres data-download/targets.txt
+            </pre>
+
+            This operation will save several files to disk that the recommender system will load to facilitate its functionality.
+
+            <h5>Additional options</h5>
+            <dl>
+                <dt>--max-lines : default=500000</dt>
+                <dd>Maximum number of lines to read from a file. This will not be the final number of unique users or books.</dd>
+
+                <dt>--max-books : default=500</dt>
+                <dd>Maximum number of unique books to consider. If the dataset is small, there may be fewer books represented.</dd>
+
+                <dt>--min-read : default=20</dt>
+                <dd>Filter for users that have read the minimum number of books. Users who have read fewer books will be dropped.</dd>
+            </dl>
+        </section>
+
+        <section>
+            <h2>3. Usage</h2>
+            <hr>
+            The recommender system
+
+            <pre>
+                python -m recommender.Recommender
+            </pre>
+
+            <h3>3.1 Recommending a book to a user</h3>
+
+            <h3>3.2 Evaluation</h3>
+
+
+        </section>
+
+        <section>
+            <h2>4. Built With</h2>
+
+            <hr>
+            <p>
+                Python 3.13
+            </p>
+
+            <h3>4.1 Required Libraries</h3>
+            <p>
+                <a href="https://numpy.org/">numpy</a> <br>
+                <a href="https://pandas.pydata.org/">pandas</a>
+            </p>
+        </section>
+
+        <section>
+            <h2>5. Contact</h2>
+
+            <hr>
+
+            <p>
+                William Berthouex<br>
+                Email: wberthou@depaul.edu<br>
+                Project Link: <a href="https://github.com/StateControlled/dsc478-recommender-system">GitHub</a>
+            </p>
+        </section>
+
+        <section>
+            <h2>6. Acknowledgements</h2>
+
+            <hr>
+
+            <h3>6.1 Primary Data</h3>
+            <p>
+                Mengting Wan, Julian McAuley, "Item Recommendation on Monotonic Behavior Chains", in RecSys'18.<br>
+                Mengting Wan, Rishabh Misra, Ndapa Nakashole, Julian McAuley, "Fine-Grained Spoiler Detection from Large-Scale Review Corpora", in ACL'19.<br>
+                <br>
+                Website: <a href="https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html">https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html</a>
+                <br>
+                Some code is adapted from https://github.com/MengtingWan/goodreads as allowed by the <a href="http://www.apache.org/licenses/">Apache License 2.0</a>
+            </p>
+
+            <h3>6.2 AI Usage</h3>
+            <p>
+                None
+            </p>
+
+        </section>
+    </body>
+</html>

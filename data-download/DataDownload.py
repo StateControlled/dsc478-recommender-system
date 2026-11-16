@@ -15,7 +15,8 @@ import os
 import requests
 import sys
 
-from core import Common
+from recommender import Common
+
 
 class DataObject:
     def __init__(self, genre: str, books_file: str, interactions_file: str, reviews_file: str):
