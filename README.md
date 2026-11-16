@@ -26,15 +26,20 @@ Requires Python 3.12+. No bundled virtual environment.
 
 ### 2.2 Data Analysis
 
-Download the data
+The file **data-download/targets.txt** contains a list of genres that will be targeted for analysis and for which relevant data will be downloaded.
+Valid genres are 'children', 'comics_graphic', 'fantasy_paranormal', 'history_biography', 'mystery_thriller_crime', 'poetry', 'romance', and 'young_adult'.
+
+#### Download the data
+
+This step only needs to be executed once.
+
 <pre>
     python -m data-download.DataDownload --out data/archive/ --genres data-download/targets.txt
 </pre>
-This step only needs to be executed once.
 
-Start analysis and initialize recommender system
+#### Start analysis and initialize recommender system
 <pre>
-    python -m recommender.Recommender --input data/archive/ --genres data-download/targets.txt
+    python -m recommender.Analyze --input data/archive/ --genres data-download/targets.txt
 </pre>
 
 ## 3. Usage

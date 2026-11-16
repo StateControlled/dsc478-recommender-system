@@ -1,297 +1,262 @@
 import argparse
-import os
 import sys
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
-
-from core import Common
+import numpy as np
 
 from IPython.core.display_functions import display
 
 
-def _analysis(frame: pd.DataFrame, book_ids: pd.DataFrame, user_ids: pd.DataFrame) -> tuple[int, int, int, float]:
+#######################################################################################################################
+#
+# EVALUATION
+#
+#######################################################################################################################
+
+
+def cross_validate_user(user_vectors: np.matrix,
+                        similarity_matrix: np.ndarray,
+                        user: int,
+                        k: int,
+                        test_ratio: float,
+                        seed=42) -> tuple[float, int]:
     """
-    :param frame:
-    :param book_ids:
-    :param user_ids:
-    :return:
-    """
+    The cross_validate_user function performs evaluation on a single user based on
+    the test_ratio: with test_ratio = 0.2, a randomly selected 20 percent of rated
+    items by the user are withheld as test data. The remaining part of the user
+    profile is used as input for the estimation functions to predict the withheld
+    ratings and compute the error for this user.
 
-    print("Basic analysis.")
-    print("-" * 32)
-    print("Sample: First ten rows of data.")
-    display(frame.head(10))
-    print()
+    The seed argument controls the random selection of the withheld items. With
+    seed=None the selection is different on every call, as before. With an integer
+    seed, the same user and the same test_ratio always withhold the same items, so
+    the evaluation is reproducible. The user id is added to the seed internally, so
+    the same seed value can be passed for every user and each one still withholds a
+    different part of its profile.
 
-    print(f"Dimensions: {frame.shape}")
-    print(f"Columns: {frame.columns}")
-
-    # The number of unique users (user id)
-    unique_user_count: int = frame['user_id'].nunique()
-    print(f"Unique users: {unique_user_count}")
-
-    unique_user_count: int = user_ids["user_id"].nunique()
-    print(f"Unique users: {unique_user_count}")
-
-    # The number of unique books (book id)
-    unique_book_count: int = frame['book_id'].nunique()
-    print(f"Unique books: {unique_book_count}")
-
-    unique_book_count: int = book_ids["book_id"].nunique()
-    print(f"Unique books: {unique_book_count}")
-
-    # The number of unique genres in the data
-    unique_genre_count: int = frame['genre'].nunique()
-    print(f"Number of genres represented: {unique_genre_count}")
-    print()
-
-    # The number of books each user has read
-    books_per_user = frame.groupby('user_id')['book_id'].nunique()
-
-    # The average number of books read
-    min_books = books_per_user.min()
-    max_books = books_per_user.max()
-    avg_books_read: float = books_per_user.mean()
-    print(f"Min books read: {min_books}")
-    print(f"Max books read: {max_books}")
-    print(f"Average books read per user: {avg_books_read:.2f}")
-    print()
-
-    # The number of books each user has read
-    print("Top ten users by number of books read:")
-    display(books_per_user.sort_values(ascending=False).head(10))
-    print()
-
-    # average rating per book
-    avg_rating_per_book = frame.groupby('book_id')['rating'].mean()
-    print("Top 20 highest rated books:")
-    display(avg_rating_per_book.sort_values(ascending=False).astype(int).head(20))
-    print()
-    print("-" * 32)
-
-    return unique_user_count, unique_book_count, unique_genre_count, avg_books_read
-
-
-def _get_books_and_users(user_book_rating_matrix: pd.DataFrame, compiled_data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Separate unique user ids and unique book ids. Re-index the user vectors matrix to align
-
-    :param user_book_rating_matrix: a matrix showing ratings for each book by user
+    :param user_vectors:        the user-item ratings matrix, with 0 for a missing rating
+    :param user:                the row index of the user to evaluate
+    :param k:                   for top k
+    :param test_ratio:          the share of this user's ratings to withhold as test data
+    :param similarity_matrix:   the static similarity matrix
+    :param seed:                fixes the random selection when it is an integer; see the note above
+    :return: the total absolute error over this user's withheld ratings, and the number of test cases they make up.
     """
 
-    print("Collecting unique users and books...")
-    # user_ids = frame[['user_id']].drop_duplicates().reset_index(drop=True)
-    user_ids = user_book_rating_matrix.index.to_frame().reset_index(drop=True)
-    print(user_ids)
-    print(type(user_ids))
-    print()
+    data_matrix = np.array(user_vectors)
 
-    book_genre_map = compiled_data[['book_id', 'genre']].drop_duplicates().reset_index(drop=True)
-    book_ids = user_book_rating_matrix.columns.to_frame().reset_index(drop=True)
-    print(book_ids)
-    print(type(book_ids))
+    # The user id is added to the seed so that every user draws a different test sample.
+    if seed is not None:
+        np.random.seed(seed + user)
 
-    matrix = user_book_rating_matrix.copy()
-    matrix.columns = book_ids.index
-    matrix.index = user_ids.index
+    number_of_items = np.shape(data_matrix)[1]
 
-    return book_ids, user_ids, matrix, book_genre_map
+    # The column indices of the items this user has actually rated.
+    rated_items_by_user = np.array([i for i in range(number_of_items) if data_matrix[user, i] > 0])
+    test_size = int(test_ratio * len(rated_items_by_user))
+
+    # Draw test_size positions within that list, at random and with replacement.
+    test_indices = np.random.randint(0, len(rated_items_by_user), test_size)
+
+    # Turn those positions into the item ids they refer to.
+    withheld_items = rated_items_by_user[test_indices]
+    original_user_profile = np.copy(data_matrix[user])
+
+    # Zero the withheld items so that they are not used in the rating estimation below.
+    data_matrix[user, withheld_items] = 0
+    error_u = 0.0
+    count_u = withheld_items.shape[0]
+
+    # Compute absolute error for user u over all test items
+    for item in withheld_items:
+        # Estimate rating on the withheld item
+        estimated_score = rating_prediction(data_matrix, user, item, similarity_matrix, k)
+
+        if estimated_score is not None:
+            error_u = error_u + abs(estimated_score - original_user_profile[item])
+        else:  # treat None as "zero"
+            error_u = error_u + original_user_profile[item]
+
+    # Now restore ratings of the withheld items to the user profile
+    for item in withheld_items:
+        data_matrix[user, item] = original_user_profile[item]
+
+    # Return sum of absolute errors and the count of test cases for this user
+    # Note that these will have to be accumulated for each user to compute MAE
+    return error_u, count_u
 
 
-def _second_pass(frame: pd.DataFrame, min_read: int) -> pd.DataFrame:
+def test(user_vectors: np.matrix, similarity_matrix: np.ndarray, test_ratio: float, k: int, seed=42) -> float:
     """
-    Once all the data is compiled, do a second pass to filter out users that do not meet requirements.
-
-    :param frame:       the DataFrame containing all the compiled data
-    :param min_read:    the minimum number of books read per user
-    :return:
-    """
-
-    df_filtered = frame[frame.groupby('user_id')['book_id'].transform('nunique') >= min_read]
-
-    return df_filtered
-
-
-def _get_interactions(input_dir: str, genre: str, drop_columns: list[str] | None=None, max_rows: int=10000) -> pd.DataFrame:
-    """
-    The frame returns has columns 'user_id' (str, contains a user id as hex string), 'book_id' (int, contains a unique id for each book),
-    'rating' (int, a rating 1-5 given to the book by the user), and 'is_reviewed' (int, 0 or 1; 1 if the user left a written review for the book)
-
-    :param genre:           the genre.
-    :param input_dir:       directory containing the zip files.
-    :param drop_columns:    columns to be dropped from the DataFrame.
-    :param max_rows:        the maximum number of rows to read from the file.
-    :return: a DataFrame containing interaction data that has had some preliminary cleaning.
-    """
-    # Interactions are the most important for what I want to do
-    # columns in interactions
-    # "user_id",
-    # "book_id",
-    # "review_id",
-    # "is_read",
-    # "rating",
-    # "review_text_incomplete",
-    # "date_added",
-    # "date_updated",
-    # "read_at",
-    # "started_at"
-    interactions: str = os.path.join(input_dir, f"goodreads_interactions_{genre}.json.gz")
-
-    # each file consists of JSON objects, one on each line
-    df: pd.DataFrame = pd.read_json(interactions, lines=True, nrows=max_rows)
-
-    # drop unnecessary columns
-    if drop_columns is None:
-        drop_columns = ["review_id", "date_added", "date_updated", "read_at", "started_at"]
-
-    df = df.drop(drop_columns, axis=1)
-
-    # This column may contain an empty string ("") or a string (a review of a book).
-    # I'm not concerned with the content of the review for this project, so I will
-    # replace empty strings with 0 and non-empty strings with 1
-    df["review_text_incomplete"] = df["review_text_incomplete"].ne("").astype(int)
-    df = df.rename(columns={"review_text_incomplete": "is_reviewed"})
-
-    # Convert from boolean to integer
-    df["is_read"] = df["is_read"].astype(int)
-
-    # rating == 0 means "read but not rated", drop rows where there is no rating
-    df = df[df["rating"] > 0]
-
-    # drop unread
-    df = df[df["is_read"] > 0]
-
-    # remove column because it is now always '1'
-    df = df.drop(["is_read"], axis=1)
-
-    df["genre"] = genre
-
-    return df.reset_index(drop=True)
-
-
-def _initial_frame(genre: str, in_dir: str, max_rows_processed: int, columns_to_drop: list[str]) -> pd.DataFrame:
-    """
-    Returns a DataFrame containing the raw data
-
-    :param genre:               the genre
-    :param in_dir:              directory containing the zip files
-    :param max_rows_processed:  the maximum number of rows to read from the file
-    :param columns_to_drop:     columns to be dropped from the DataFrame
-    :return:
+    :param user_vectors:     the user-item ratings matrix, with 0 for a missing rating
+    :param test_ratio:  the share of this user's ratings to withhold as test data
+    :param k:           for top k matches
+    :param seed:        passed straight through to cross_validate_user
+    :return: the mean average error (MAE) over the whole data set
     """
 
-    print(f"Gathering data for genre: {genre}...")
-    frame: pd.DataFrame = _get_interactions(in_dir, genre, drop_columns=columns_to_drop, max_rows=max_rows_processed)  # real length = 34,919,255
+    total_error: float = 0.0
+    total_cases: int = 0
 
-    return frame
+    # iterate over all users
+    for user_id in range(np.shape(user_vectors)[0]):
+        err, count = cross_validate_user(user_vectors, similarity_matrix, user_id, k, test_ratio, seed)
+
+        total_error += err
+        total_cases += count
+
+    return total_error / total_cases # MAE
 
 
-def compile_and_analyze(genre_list: list[str],
-                        in_dir: str,
-                        min_user_read: int,
-                        max_rows_to_read: int=50000,
-                        unnecessary_columns: list[str] | None=None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    # unnecessary_columns = ["review_id", "date_added", "date_updated", "read_at", "started_at"]
+#######################################################################################################################
+#
+# PREDICTION
+#
+#######################################################################################################################
 
-    if unnecessary_columns is None:
-        unnecessary_columns: list[str] = ["review_id", "date_added", "date_updated", "read_at", "started_at"]
 
-    # to compile complete list later
-    temp_frame_list: list[pd.DataFrame] = []
+def rating_prediction(user_vectors: np.matrix | np.ndarray,
+                      user: int,
+                      item: int,
+                      similarity_matrix: np.ndarray,
+                      k: int = 10) -> float | None:
+    """
+    A prediction function. Returns the predicted rating based on top k most similar items. If the user has not rated any of the top k items, returns None.
 
-    # read in the initial data from disk
-    for book_genre in genre_list:
-        frame = _initial_frame(book_genre, in_dir, columns_to_drop=unnecessary_columns, max_rows_processed=max_rows_to_read)
+    :param user_vectors:        the user-item ratings matrix
+    :param user:                target user
+    :param item:                target item
+    :param k:                   top k items
+    :param similarity_matrix:   similarity matrix computed in training
+    :return:                    the predicted rating or None if the user has rated none of the top k most similar items
+    """
 
-        temp_frame_list.append(frame)
+    user_row = np.asarray(user_vectors)[user]
 
-    # this frame has all the combined data
-    complete_frame: pd.DataFrame = pd.concat(temp_frame_list, ignore_index=True)
-    complete_frame = _second_pass(complete_frame, min_user_read)
+    similarities: np.ndarray = similarity_matrix[item].copy()
+    similarities[item] = -np.inf  # exclude the item itself
 
-    # create vector for each user
-    # table format:
+    # top k most similar items
+    _temp = np.argsort(-similarities)
+    neighbors = _temp[:k]
 
-    #         book_0 book_1 book_2 book_3
-    # user_0       4      5      2      1
-    # user_1       0      3      1      0
-    # user_2       0      0      5      4
-    vectors: pd.DataFrame = complete_frame.pivot_table(index='user_id', columns='book_id', values='rating', fill_value=0)
-    """user x book table showing ratings for each book by user"""
-    vectors = vectors.astype(int)
+    rated: list = [j for j in neighbors if user_row[j] > 0]  # filter out unrated items
 
-    # do additional processing, separate book ids and user ids
-    book_ids, user_ids, user_vectors, book_genre_map = _get_books_and_users(vectors, complete_frame)
+    # if there are no items in the list, then the user has not rated any of the top k items
+    if not rated:
+        return None
 
-    user_count, book_count, genre_count, avg_books_read = _analysis(complete_frame, book_ids, user_ids)
+    weighted_average = similarity_matrix[item, rated]
+    # if the weighted average is somehow zero
+    if weighted_average.sum() == 0:
+        return None
 
-    print("User Vectors")
-    print("A set of vectors for each user. Each vector shows a single user's rating for every book. Unrated books have a rating of zero.")
-    print(user_vectors.shape)
-    print()
+    # predicted rating
+    return np.dot(weighted_average, user_row[rated]) / weighted_average.sum()
 
-    display(user_vectors.head(10))
-    print()
 
-    return user_vectors, complete_frame, book_ids, user_ids, book_genre_map
+def recommend(user_vectors: np.matrix, user: int, sim_matrix: np.ndarray, num_recommend: int = 3, neighbors: int = 10) -> str | list:
+    """
+    recommend() turns a prediction function into a top-N recommender. It calls the estimator once
+    for every item the user has not yet rated, then returns the N items with the highest predicted
+    ratings.
+
+    :param user_vectors:    the user-item ratings matrix, with 0 for a missing rating
+    :param user:            the row index of the user to recommend to
+    :param sim_matrix:      a static similarity matrix
+    :param num_recommend:   how many recommendations to return
+    :param neighbors:       number of neighbors used for top most similar
+
+    :return:    a list of (item, predicted rating) pairs, highest first, or a message if the
+                user has rated every item.
+    """
+
+    unrated_items = np.nonzero(user_vectors[user, :].A == 0)[1]  # find unrated items
+    if len(unrated_items) == 0:
+        return 'you rated everything'
+
+    item_scores: list[tuple] = []
+    for itm in unrated_items:
+        estimated_score = rating_prediction(user_vectors, user, itm, sim_matrix, neighbors)
+
+        if estimated_score is None:
+            estimated_score = 0
+
+        item_scores.append((itm, estimated_score))
+
+    # Sort the (item, score) pairs by score, highest first, and keep the top N.
+    return sorted(item_scores, key=lambda jj: jj[1], reverse=True)[:num_recommend]
 
 
 #######################################################################################################################
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Downloads target data files from the web and saves to local disk.")
-    ap.add_argument("--genres", default="data-download/test-targets.txt", help="Path to a file containing a list of genres.")
-    ap.add_argument("--input", default="data/archive", help="Source directory containing data to analyze.")
-    ap.add_argument("--out", default="data/processed/", help="Output directory")
-    # ap.add_argument("--gen-tests", default=16, help="Number of test users to generate")
-    ap.add_argument("--min-read", default=30, help="Minimum number of books read per user")
-    # ap.add_argument("--max-read", default=2000, help="Maximum number of books read per user")
-    ap.add_argument("--save-output", action=argparse.BooleanOptionalAction, default=True, help="Whether to save outputs to disk")
+    ap = argparse.ArgumentParser(description="Prediction function.")
+
+    ap.add_argument("--predict-for", action="store_true", help="Predict the recommendation based on user ratings")
+    ap.add_argument("--user", "-u", type=int, help="A user id to make a prediction for")
+    ap.add_argument("--book", "-b", type=int, help="The book id to predict the user's rating")
+
+    ap.add_argument("--recommend", action="store_true", help="Recommend top N items for a user")
+    # ap.add_argument("--user", "-u", type=int, help="A user id to make a prediction for")
+    ap.add_argument("--top-n", "-n", type=int, help="Number of recommendations to return")
+
+    ap.add_argument("--book-genre-map", default="data/processed/book_genre_map.csv", help="Path to book-genre map")
+    ap.add_argument("--user-data", default="data/processed/user_vectors.csv", help="Path to user x book rating matrix")
+    ap.add_argument("--users", default="data/processed/user_id_map.csv", help="Path to user_id-index map")
+    ap.add_argument("--similarities", default="data/processed/similarity_matrix.csv", help="Path to book similarity matrix")
+
+    ap.add_argument("--list-user-ids", action=argparse.BooleanOptionalAction, help="Print list of user ids")
+    ap.add_argument("--list-book-ids", action=argparse.BooleanOptionalAction, help="Print list of book ids")
+    ap.add_argument("--print-matrix", action=argparse.BooleanOptionalAction, help="Prints the user x book rating matrix")
 
     args = ap.parse_args(args=argv)
 
-    genres: str = args.genres
-    in_dir: str = args.input
-    out_dir: str = args.out
-    # test_user_count: int = args.gen_tests
-    save_output: bool = args.save_output
-    min_read_books: int = args.min_read
-    # max_read_books: int = args.max_read
+    # load data
+    book_genre_map: pd.DataFrame = pd.read_csv(args.book_genre_map, index_col=0)
+    user_id_map: pd.DataFrame = pd.read_csv(args.users, index_col=0)
 
-    genre_list = Common.read_file(genres)
+    # load data
+    user_vectors: pd.DataFrame = pd.read_csv(args.user_data, header=None, index_col=None) # vectors, no headers
+    similarity_matrix: pd.DataFrame = pd.read_csv(args.similarities, header=None, index_col=None) # similarity matrix, no headers
 
-    ################################################
+    data_matrix: np.matrix = np.asmatrix(user_vectors)
 
-    user_vectors, compiled_data, book_ids, user_ids, book_genre_map = compile_and_analyze(genre_list, in_dir, min_read_books)
+    if args.list_user_ids:
+        print("User IDs (first 20):")
+        display(user_id_map.head(20))
 
-    # if test_user_count > 0:
-    #     test_data = TestData.generate_test_data(test_user_count, avg_books_read, user_vectors, min_read=min_read_books, max_read=max_read_books)
-    #     if save_output:
-    #         save_to_disk(test_data, "test_data.csv", out_dir, True)
+    if args.list_book_ids:
+        print("Book IDs (first 20):")
+        display(book_genre_map.head(20))
 
-    if save_output:
-        Common.save_to_disk(book_genre_map, filename="book_genre_map.csv",  out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(book_ids,       filename="book_id_map.csv",     out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(compiled_data,  filename="compiled_data.csv",   out_dir=out_dir, index_=False,  header_=True)
-        Common.save_to_disk(user_ids,       filename="user_id_map.csv",     out_dir=out_dir, index_=True,   header_=True)
-        Common.save_to_disk(user_vectors ,  filename="user_vectors.csv",    out_dir=out_dir, index_=False,  header_=False)
+    if args.print_matrix:
+        print("User Vectors (first 20):")
+        display(user_vectors.head(20))
 
-    ################################################
+    if args.predict_for:
+        if args.user is None or args.book is None:
+            ap.error("\'--predict-for\' requires both \'-user\' and \'-book\'; provide both a user_id and a book_id")
+            # exit
+        else:
+            print(f"Predicted rating for book {args.book} by user {args.user}")
+            rating = rating_prediction(data_matrix, args.user, args.book, similarity_matrix.to_numpy())
+            print(f"Rating: {rating}")
 
-    # target_id = 512
-    # TARGET = user_vectors[[target_id]]
-    # USER_VECTORS = user_vectors.drop([target_id], axis=1)
-    # X_TRAIN, X_TEST, Y_TRAIN, Y_TEST = train_test_split(USER_VECTORS, TARGET, test_size=0.2, random_state=42)
-    #
-    # print(f"X_TRAIN: {X_TRAIN.shape}, X_TEST: {X_TEST.shape}")
-    # print(f"Y_TRAIN: {Y_TRAIN.shape}, Y_TEST: {Y_TEST.shape}")
+    if args.recommend:
+        if args.user is None:
+            ap.error(
+                "\'--recommend\' requires \'-user\'; provide a user_id")
+            # exit
+        else:
+            if args.top_n is not None:
+                top_recs = recommend(data_matrix, args.user, similarity_matrix.to_numpy(), args.top_n, args.top_n * 2)
+                print(top_recs)
+            else:
+                top_recs = recommend(data_matrix, args.user, similarity_matrix.to_numpy(), num_recommend=5, neighbors=10)
+                print(top_recs)
 
-    ################################################
-
-    print()
-    print("Complete!")
     return 0
 
 

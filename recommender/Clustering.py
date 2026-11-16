@@ -30,8 +30,6 @@ def cluster_sizes(clusters, data):
 def run():
     data: pd.DataFrame = pd.read_csv("../data/processed/user_vectors.csv", index_col=0)
 
-
-
     # users x books
     display(data.head(10))
 
