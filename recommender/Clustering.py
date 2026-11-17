@@ -1,87 +1,113 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 
-from IPython.core.display_functions import display
+from sklearn.cluster import KMeans
+from sklearn.decomposition import TruncatedSVD
+from sklearn.metrics import silhouette_score
+from dataclasses import dataclass
+
 
 RANDOM_STATE=42
 NUM_CLUSTERS = 4
 DO_RANGE = False
 
-def cluster_sizes(clusters, data):
-    # clusters is an array of cluster labels for each instance in the data
 
-    size = {}
-    cluster_labels = np.unique(clusters)
+@dataclass
+class ClusterModel:
+    """
+    Represents users grouped by taste, with one book-similarity matrix per group.
 
-    for c in cluster_labels:
-        size[c] = len(data[clusters == c])
-    return size
+    labels:     cluster of every user (row order of the rating matrix)
+    combined:   cluster - blended books x books similarity matrix used to predict for that cluster's users
+    item_mean:  cluster - mean rating of every book among the cluster's users
+    """
+
+    labels: np.ndarray
+    global_sim: np.ndarray
+    combined: dict[int, np.ndarray]
+    item_mean: dict[int, np.ndarray]
+    blend: float
+    silhouette: dict[int, float] | None = None
+
+    def similarity_for(self, user: int) -> np.ndarray:
+        return self.combined[int(self.labels[user])]
 
 
-def run(filename: str):
-    # "../data/processed/user_vectors.csv"
-    # user_vectors.csv has no row or column headers
-    data: pd.DataFrame = pd.read_csv(filename, index_col=False, header=None)
+#######################################################################################################################
+#
+# Clustering
+#
+#######################################################################################################################
 
-    # users x books
-    display(data.head(10))
 
-    kmeans = KMeans(n_clusters=NUM_CLUSTERS, max_iter=200, init="k-means++", n_init=2, verbose=1, random_state=RANDOM_STATE)
-    kmeans.fit(data)
+def user_features(ratings: np.ndarray,
+                  center: bool=True,
+                  n_components: int=10) -> np.ndarray:
+    """
+    Turns the users x books rating matrix into a clustered feature matrix
 
-    #######################################################
+    :param ratings:         users x books matrix
+    :param center:          center
+    :param n_components:    project the users onto this many SVD components before clustering.
 
-    print("Clusters")
-    clusters = kmeans.predict(data)
-    print(clusters)
-    print()
+    :return: users x features matrix
+    """
 
-    #######################################################
+    result: np.ndarray = np.asarray(ratings, dtype=np.float64)
 
-    centroids = pd.DataFrame(kmeans.cluster_centers_)
-    print("Centroids")
-    print(centroids)
-    print()
+    if center: # subtract each user's mean rating from their rated entries
+        mask = result > 0
+        means = result.sum(axis=1) / np.maximum(mask.sum(axis=1), 1)
+        result = np.where(mask, result - means[:, None], 0.0)
 
-    print("Cluster sizes")
-    sizes = cluster_sizes(clusters, data)
-    for c in sizes.keys():
-        print(f"Cluster", c, " = ", sizes[c])
+    if n_components < min(result.shape):
+        result = TruncatedSVD(n_components=n_components, random_state=RANDOM_STATE).fit_transform(result)
 
-    print()
+    return result
 
-    #######################################################
 
-    spread = (centroids.max() - centroids.min()) / data.std()
-    display(spread.sort_values(ascending=False).to_frame("centroid spread (in std devs)"))
-    print()
+def cluster_users(ratings: np.ndarray,
+                  n_clusters: int=NUM_CLUSTERS,
+                  seed: int=RANDOM_STATE,
+                  center: bool=True) -> tuple[np.ndarray, KMeans]:
+    """
+    Clusters users by taste with k-means.
 
-    #######################################################
+    :return: the cluster label of every user (row order of `ratings`), and the fitted KMeans model
+    """
 
-    scaler = StandardScaler()
-    data_scaled = pd.DataFrame(scaler.fit_transform(data))
-    data_scaled.describe()
+    features: np.ndarray = user_features(ratings, center)
+    km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, max_iter=300, random_state=seed)
+    labels = km.fit_predict(features)
 
-    #######################################################
+    return labels, km
 
-    if DO_RANGE:
-        wcss = []
-        for i in range(1, 11):
-            print(f"Testing K={i}")
-            km = KMeans(n_clusters=i,
-                        init='k-means++',
-                        n_init=10,
-                        max_iter=300,
-                        random_state=0)
-            km.fit(data_scaled)
-            wcss.append(km.inertia_)
 
-        plt.plot(range(1, 11), wcss, marker='o')
-        plt.xlabel('Number of clusters')
-        plt.ylabel('Distortion')
-        plt.tight_layout()
-        # pl.savefig('elbow-kmeans.png', dpi=300)
-        plt.show()
+def choose_k(ratings: np.ndarray,
+             k_values=range(2, 9),
+             seed: int=RANDOM_STATE,
+             center: bool=True) -> tuple[int, dict[int, float]]:
+    """
+    Picks the number of clusters with the best silhouette score.
+
+    :return: the best k and the silhouette score of every k
+    """
+
+    features:np.ndarray = user_features(ratings, center)
+    scores: dict[int, float] = {}
+
+    for k in k_values:
+        if k >= len(features):
+            break
+
+        labels = KMeans(n_clusters=k, init="k-means++", n_init=5, max_iter=300, random_state=seed).fit_predict(features)
+
+        if len(np.unique(labels)) < 2:
+            continue
+
+        scores[k] = float(silhouette_score(features, labels, sample_size=min(len(features), 2000), random_state=seed))
+
+    if not scores:
+        raise ValueError("Not enough users to choose a number of clusters.")
+
+    # higher = better separated clusters
+    return max(scores, key=scores.get), scores

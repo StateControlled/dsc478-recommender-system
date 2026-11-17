@@ -3,59 +3,10 @@ import os
 import sys
 
 import pandas as pd
-import numpy as np
 
 from recommender import Common
 
 from IPython.core.display_functions import display
-
-
-def _similarity(a: np.matrix, b: np.matrix) -> float:
-    """
-    Pearson similarity calculation.
-    :param a:
-    :param b:
-    :return:
-    """
-
-    if len(a) < 3:  # need a minimum of 3 points
-        return 0.0
-
-    # corrcoef returns a 2x2 matrix; [0][1] is the correlation, rescaled here from [-1, 1] to [0, 1].
-    _temp = np.corrcoef(a, b, rowvar=0)[0][1]
-
-    if ~np.isfinite(_temp):
-        return 0.0
-
-    return 0.5 + 0.5 * _temp
-
-
-def _build_similarity_matrix(user_vectors_matrix: np.matrix) -> pd.DataFrame:
-    """
-    Creates a similarity matrix for every book pair.
-
-    :param user_vectors_matrix: user vectors - user x book matrix
-    :return: the similarity matrix
-    """
-
-    print("Creating similarity matrix...")
-    size: int = user_vectors_matrix.shape[1]  # number of books
-
-    result: np.ndarray = np.zeros((size, size))
-
-    for i in range(size):
-        for j in range(i + 1, size):
-            _temp = np.logical_and(user_vectors_matrix[:, i] > 0, user_vectors_matrix[:, j] > 0)
-            _both = np.nonzero(_temp)[0]
-            result[i, j] = result[j, i] = _similarity(user_vectors_matrix[_both, i], user_vectors_matrix[_both, j])
-
-    print(f"Similarity matrix complete: {result.shape}")
-
-    # convert to DataFrame for convenience
-    return pd.DataFrame(result)
-
-
-#######################################################################################################################
 
 
 def _analysis(frame: pd.DataFrame, book_ids: pd.DataFrame, user_ids: pd.DataFrame) -> tuple[int, int, int, float]:
@@ -353,9 +304,6 @@ def main(argv: list[str] | None = None) -> int:
                                                                                           max_rows_to_read=max_lines_to_read,
                                                                                           max_unique_books=max_unique)
 
-    # similarity_matrix = user_vectors.corr(method="pearson")
-    similarity_matrix = _build_similarity_matrix(np.asmatrix(user_vectors))
-
     # if save_output:
     Common.save_to_disk(book_genre_map,
                         filename="book_genre_map.csv",
@@ -384,12 +332,6 @@ def main(argv: list[str] | None = None) -> int:
     Common.save_to_disk(user_vectors,
                         filename="user_vectors.csv",
                         description="User x book matrix",
-                        out_dir=out_dir,
-                        index_=False,
-                        header_=False)
-    Common.save_to_disk(similarity_matrix,
-                        filename="similarity_matrix.csv",
-                        description="Book similarity matrix",
                         out_dir=out_dir,
                         index_=False,
                         header_=False)

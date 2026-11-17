@@ -1,64 +1,89 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html">
     <head>
         <meta charset="utf-8">
         <title>DSC 478 Final Project</title>
+        <style>
+            body {
+                border: 2px solid black;
+                margin: 4px;
+                padding: 12px;
+            }
+            h1 {
+                color: #165f81;
+            }
+            footer {
+                border: 1px solid black;
+                margin: 2px;
+                padding: 6px;
+                color: #a0a0a0;
+            }
+        </style>
     </head>
 
     <body>
-        <h1>DSC 478 Final Project</h1>
+        <section class="top">
+            <h1>DSC 478 Final Project</h1>
 
-        <p>
-            DePaul University<br>
-            DSC 478 Programming Machine Learning Applications<br>
-            2026-2027 Autumn
-        </p>
-
-        <section>
-            <h2>1. About</h2>
-
-            <hr>
-
-            The objective of the project is to create a collaborative recommender system that will recommend books,
-            using data sourced from <a href="https://www.goodreads.com/">Goodreads</a>,
+            <p>
+                DePaul University<br>
+                DSC 478 Programming Machine Learning Applications<br>
+                2026-2027 Autumn
+            </p>
         </section>
 
-        <section>
-            <h2>2. Run</h2>
+        <section class="section1">
+            <h2>1. About</h2>
+            <hr>
+            <p>
+                The objective of the project is to create a collaborative recommender system that will recommend books, using data sourced from <a href="https://www.goodreads.com/">Goodreads</a>,
+            </p>
+        </section>
 
+        <section class="section2">
+            <h2>2. Run</h2>
             <hr>
 
             <h3>2.1 Setup</h3>
 
-            Install all required libraries:
+            <p>
+                Install all required libraries:
+            </p>
             <pre>
                 python -m pip install -r requirements.txt
             </pre>
-            Requires Python 3.12 or later.<br>
-            No bundled virtual environment.
+            <p>
+                Requires Python 3.12 or later.<br>
+                No bundled virtual environment.
+            </p>
 
             <h3>2.2 Data Analysis</h3>
+            <p>
+                The file <i>data-download/targets.txt</i> contains a list of genres that will be targeted for analysis and for which
+                relevant data will be downloaded.<br>
+                Valid genres are 'children', 'comics_graphic', 'fantasy_paranormal', 'history_biography', 'mystery_thriller_crime',
+                'poetry', 'romance', and 'young_adult'.
+            </p>
+            <h4>2.2.1 Download the data</h4>
 
-            The file <i>data-download/targets.txt</i> contains a list of genres that will be targeted for analysis and for which relevant data will be downloaded.<br>
-            Valid genres are 'children', 'comics_graphic', 'fantasy_paranormal', 'history_biography', 'mystery_thriller_crime', 'poetry', 'romance', and 'young_adult'.
-
-            <h4>Download the data</h4>
-
-            Download the data for each targeted genre from the <a href="https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html">source</a> and save to local disk.
-            This step only needs to be executed once.
-
+            <p>
+                Download the data for each targeted genre from the <a href="https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html">source</a> and save to local disk.
+                This step only needs to be executed once.
+            </p>
             <pre>
                 python -m data-download.DataDownload --out data/archive/ --genres data-download/targets.txt
             </pre>
 
-            <h4>Start analysis and initialize recommender system</h4>
+            <h4>2.2.2 Start analysis and initialize recommender system</h4>
 
             <pre>
                 python -m recommender.Analyze --input data/archive/ --genres data-download/targets.txt
             </pre>
-
-            This operation will save several files to disk that the recommender system will load to facilitate its functionality.
+            <p>
+                This operation will save several files to disk that the recommender system will load to facilitate its
+                functionality.
+            </p>
 
             <h5>Additional options</h5>
             <dl>
@@ -71,57 +96,96 @@
                 <dt>--min-read : default=20</dt>
                 <dd>Filter for users that have read the minimum number of books. Users who have read fewer books will be dropped.</dd>
             </dl>
-        </section>
 
-        <section>
-            <h2>3. Usage</h2>
-            <hr>
-            The recommender system
+            <h3>2.3 The Recommender System</h3>
 
+            <h4>2.3.1 Recommending a book to a user</h4>
+            <p>Predict a user's rating for a given book.</p>
             <pre>
-                python -m recommender.Recommender
+                python -m recommender.Recommender --predict-for --user 12 --book 40
+            </pre>
+            <p>Recommend top-n number of books to a user.</p>
+            <pre>
+                python -m recommender.Recommender --recommend --user 12 --top-n 5
             </pre>
 
-            <h3>3.1 Recommending a book to a user</h3>
+            <h4>2.3.2 Evaluation</h4>
+            <p>Evaluate the accuracy of the model.</p>
+            <pre>
+                python -m recommender.Recommender --evaluate --test-ratio 0.2 --k 10
+            </pre>
 
-            <h3>3.2 Evaluation</h3>
+            <p>Compare plain vs cluster-aware CF.</p>
+            <pre>
+                python -m recommender.Recommender --evaluate --clusters 4
+            </pre>
 
-
+            <p>Print cluster info.</p>
+            <pre>
+                python -m recommender.Recommender --cluster-info --clusters 4
+            </pre>
         </section>
 
-        <section>
-            <h2>4. Built With</h2>
-
+        <section class="section3">
+            <h2>3. Structure</h2>
             <hr>
-            <p>
-                Python 3.13
-            </p>
 
-            <h3>4.1 Required Libraries</h3>
-            <p>
-                <a href="https://numpy.org/">numpy</a> <br>
-                <a href="https://pandas.pydata.org/">pandas</a>
-            </p>
+            <h3>3.1 Built With</h3>
+            <p>Python 3.13</p>
+
+            <h3>3.2 Required Libraries</h3>
+            <table>
+                <thead></thead>
+                <tbody>
+                    <tr>
+                        <td>Numpy</td>
+                        <td><a href="https://numpy.org/">https://numpy.org/</a></td>
+                    </tr>
+                    <tr>
+                        <td>Pandas</td>
+                        <td><a href="https://pandas.pydata.org/">https://pandas.pydata.org/</a></td>
+                    </tr>
+                    <tr>
+                        <td>Scikit-Learn</td>
+                        <td><a href="https://scikit-learn.org/stable/">https://scikit-learn.org/stable/</a></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>3.3 Directory Structure</h3>
+            <pre>
+                root/
+                |- data-download/
+                |   |- DataDownload.py
+                |   |- dataset_names.csv
+                |   |- maps.csv
+                |   |- targets.txt
+                |- recommender/
+                |   |- Analyze.py
+                |   |- Clustering.py
+                |   |- Common.py
+                |   |- Recommender.py
+                |- README.html
+                |- requirements.txt
+            </pre>
         </section>
 
-        <section>
-            <h2>5. Contact</h2>
-
+        <section class="section4">
+            <h2>4. Contact</h2>
             <hr>
 
             <p>
                 William Berthouex<br>
-                Email: wberthou@depaul.edu<br>
+                Email: wberthou@depaul.edu, william.berthouex@gmail.com<br>
                 Project Link: <a href="https://github.com/StateControlled/dsc478-recommender-system">GitHub</a>
             </p>
         </section>
 
-        <section>
-            <h2>6. Acknowledgements</h2>
-
+        <section class="section5">
+            <h2>5. Acknowledgements</h2>
             <hr>
 
-            <h3>6.1 Primary Data</h3>
+            <h3>5.1 Primary Data Source</h3>
             <p>
                 Mengting Wan, Julian McAuley, "Item Recommendation on Monotonic Behavior Chains", in RecSys'18.<br>
                 Mengting Wan, Rishabh Misra, Ndapa Nakashole, Julian McAuley, "Fine-Grained Spoiler Detection from Large-Scale Review Corpora", in ACL'19.<br>
@@ -131,11 +195,22 @@
                 Some code is adapted from https://github.com/MengtingWan/goodreads as allowed by the <a href="http://www.apache.org/licenses/">Apache License 2.0</a>
             </p>
 
-            <h3>6.2 AI Usage</h3>
+            <h3>5.2 AI Usage Disclosure</h3>
             <p>
-                None
+                AI was used to make extensive edits to methods in Recommender.py and Clustering.py.<br>
+                Model: Claude AI, Sonnet 5.5, Free version
             </p>
 
+            <dl>
+                <dt>Recommender.py</dt>
+                <dd>Generated</dd>
+                <dt>Clustering.py</dt>
+                <dd>Generated</dd>
+            </dl>
         </section>
+
+        <footer>
+            <small>William Berthouex, 2026</small>
+        </footer>
     </body>
 </html>
