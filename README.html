@@ -9,15 +9,21 @@
                 border: 2px solid black;
                 margin: 4px;
                 padding: 12px;
+                background-color: #ffffff;
             }
             h1 {
                 color: #165f81;
             }
-            footer {
+            footer, .top, .section1, .section2, .section3, .section4, .section5 {
                 border: 1px solid black;
                 margin: 2px;
                 padding: 6px;
+            }
+            footer {
                 color: #a0a0a0;
+            }
+            section {
+                background-color: #ffffff;
             }
         </style>
     </head>
@@ -46,7 +52,6 @@
             <hr>
 
             <h3>2.1 Setup</h3>
-
             <p>
                 Install all required libraries:
             </p>
@@ -60,13 +65,21 @@
 
             <h3>2.2 Data Analysis</h3>
             <p>
+                <i>DataDownload.py</i> is dedicated solely to downloading the data required to run the recommender system.
+            </p>
+            <p>
                 The file <i>data-download/targets.txt</i> contains a list of genres that will be targeted for analysis and for which
-                relevant data will be downloaded.<br>
+                relevant data will be downloaded.
                 Valid genres are 'children', 'comics_graphic', 'fantasy_paranormal', 'history_biography', 'mystery_thriller_crime',
                 'poetry', 'romance', and 'young_adult'.
             </p>
-            <h4>2.2.1 Download the data</h4>
+            <p>
+                By default, <i>targets.txt</i> will only point the system to look at the 'fantasy_paranormal' genre.
+                This is to focus the system and (hopefully) influence more accurate predictions.
+                Additional genres, listed above, may be added manually to expand the systems knowledge.
+            </p>
 
+            <h4>2.2.1 Download the data</h4>
             <p>
                 Download the data for each targeted genre from the <a href="https://cseweb.ucsd.edu/~jmcauley/datasets/goodreads.html">source</a> and save to local disk.
                 This step only needs to be executed once.
@@ -76,13 +89,15 @@
             </pre>
 
             <h4>2.2.2 Start analysis and initialize recommender system</h4>
-
             <pre>
                 python -m recommender.Analyze --input data/archive/ --genres data-download/targets.txt
             </pre>
             <p>
-                This operation will save several files to disk that the recommender system will load to facilitate its
-                functionality.
+                Running this command as depicted will result in a pared-down dataset with 680 unique users and 500 unique books.
+                Users will have read a minimum of 20 books with an average of 29.35 books per user.
+                One of the major outputs is a user x book rating matrix.
+                <br>
+                Several files will be saved to disk that the recommender system will load later.
             </p>
 
             <h5>Additional options</h5>
@@ -97,6 +112,122 @@
                 <dd>Filter for users that have read the minimum number of books. Users who have read fewer books will be dropped.</dd>
             </dl>
 
+            <details>
+            <summary>Click for sample output of Analysis</summary>
+                <p>Sample output running command with default options.</p>
+                <pre>
+                    Gathering data for genre: fantasy_paranormal...
+                    Collecting unique users and books...
+                                                user_id
+                    0  004f6d189c4546a39db2162986c0d9e1
+                    1  0088ac052921fbdad6145c29322f9144
+                    2  00c9b42a033f99e817d990a6ae4681e4
+                    3  0102db8db2097cd4482ebc20b7b2d5be
+                    4  012515e5802b2e0f42915118c90fa04b
+
+                       book_id
+                    0        1
+                    1        2
+                    2        3
+                    3        4
+                    4        6
+
+                    Basic analysis.
+                    --------------------------------
+                    Sample: First ten rows of data.
+                                                user_id   book_id  rating  is_reviewed               genre
+                    0  8842281e1d1347389f2ab93d60773d4d  18245960       5            1  fantasy_paranormal
+                    1  8842281e1d1347389f2ab93d60773d4d  29058155       3            0  fantasy_paranormal
+                    2  8842281e1d1347389f2ab93d60773d4d    186074       5            0  fantasy_paranormal
+                    3  8842281e1d1347389f2ab93d60773d4d  15839976       5            0  fantasy_paranormal
+                    4  8842281e1d1347389f2ab93d60773d4d   5577844       5            1  fantasy_paranormal
+                    5  8842281e1d1347389f2ab93d60773d4d  17315048       5            1  fantasy_paranormal
+                    6  8842281e1d1347389f2ab93d60773d4d  13453029       4            1  fantasy_paranormal
+                    7  8842281e1d1347389f2ab93d60773d4d  13239822       3            1  fantasy_paranormal
+                    8  8842281e1d1347389f2ab93d60773d4d  10673579       5            0  fantasy_paranormal
+                    9  8842281e1d1347389f2ab93d60773d4d   6987584       4            1  fantasy_paranormal
+
+                    Dimensions: (19961, 5)
+                    Columns: user_id book_id rating is_reviewed genre
+                    Unique users: 680
+                    Unique books: 500
+                    Number of genres represented: 1
+
+                    General user data.
+                    Min books read: 20
+                    Max books read: 261
+                    Average books read per user: 29.35
+
+                    Top ten users by number of books read:
+                    user_id
+                    f8a89075dc6de14857561522e729f82c    261
+                    012515e5802b2e0f42915118c90fa04b    114
+                    004f6d189c4546a39db2162986c0d9e1     96
+                    3ed584f0d870f5abea193fa0335fe7a4     77
+                    9496017bffa03c5feb7006dc14c945d4     74
+                    179f66484b6cb960e287828014c01134     68
+                    4cb9fc4eb879f08af32efa0a9f63f057     68
+                    f24de1703a8dcc15f3690fd05268601b     67
+                    e278cb300cc6cbc9bea0e7f172ee0cf2     66
+                    8e596b88d0516977c8a70644e3fa2f53     66
+                    Name: book_id, dtype: int64
+
+                    Top 20 highest rated books:
+                    book_id
+                    29275562    5
+                    22249472    5
+                    21943848    5
+                    23254391    5
+                    17402052    5
+                    17278583    5
+                    17315048    5
+                    22026013    5
+                    17910295    5
+                    18166510    5
+                    897461      5
+                    1022863     5
+                    13419885    5
+                    13621702    5
+                    13558878    5
+                    13547636    5
+                    15721559    5
+                    13565658    5
+                    13628440    5
+                    5577844     5
+                    Name: rating, dtype: int64
+
+                    --------------------------------
+                    User Vectors
+                    A set of vectors for each user. Each vector shows a single user's rating for every book. Unrated books have a rating of zero.
+                    (680, 500)
+
+                       0    1    2    3    4    5    6    7    8    ...  490  491  492  493  494  495  496  497  498  499
+                    0    5    5    5    0    5    5    0    5    0  ...    0    0    0    0    0    0    0    4    0    0
+                    1    4    4    0    0    3    4    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    2    4    4    4    0    4    0    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    3    4    4    4    0    4    0    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    4    0    0    0    0    0    0    0    0    0  ...    5    5    0    4    0    0    0    0    0    5
+                    5    0    0    5    0    0    0    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    6    5    5    5    0    5    0    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    7    4    4    4    0    4    5    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+                    8    5    5    5    0    5    4    0    0    5  ...    0    0    0    0    0    0    0    0    0    0
+                    9    3    2    3    0    3    1    0    0    0  ...    0    0    0    0    0    0    0    0    0    0
+
+                    [10 rows x 500 columns]
+
+                    Saved file to data/processed/book_genre_map.csv
+                    Description: book ids and genre
+                    Saved file to data/processed/book_id_map.csv
+                    Description: Index and book ids
+                    Saved file to data/processed/compiled_data.csv
+                    Description: Compiled data: user id, books id, rating, genre
+                    Saved file to data/processed/user_id_map.csv
+                    Description: Index and user ids
+                    Saved file to data/processed/user_vectors.csv
+                    Description: User x book matrix
+                </pre>
+            </details>
+
             <h3>2.3 The Recommender System</h3>
 
             <h4>2.3.1 Recommending a book to a user</h4>
@@ -108,6 +239,33 @@
             <pre>
                 python -m recommender.Recommender --recommend --user 12 --top-n 5
             </pre>
+
+            <details>
+            <summary>Click for sample output of recommender system</summary>
+                <p>Sample output of the recommender system.</p>
+                <pre>
+                    >>> python -m recommender.Recommender --predict-for --user 12 --book 40
+
+                    Silhouette score by k: k=2: 0.279, k=3: 0.148, k=4: 0.162, k=5: 0.142, k=6: 0.130, k=7: 0.129, k=8: 0.116
+                    Using 2 clusters.
+                    Predicted rating for book index 40 (Goodreads id 18512, fantasy_paranormal) by user 12
+                    (user 12 is in cluster 1)
+                    Rating: 4.09
+                </pre>
+                <pre>
+                    >>> python -m recommender.Recommender --recommend --user 12 --top-n 5
+
+                    Silhouette score by k: k=2: 0.279, k=3: 0.148, k=4: 0.162, k=5: 0.142, k=6: 0.130, k=7: 0.129, k=8: 0.116
+                    Using 2 clusters.
+                    (user 12 is in cluster 1)
+                    Top 5 recommendations for user 12:
+                      1. book index 23 (Goodreads id 11129, fantasy_paranormal)  predicted rating 5.00
+                      2. book index 133 (Goodreads id 6984678, fantasy_paranormal)  predicted rating 5.00
+                      3. book index 15 (Goodreads id 2744, fantasy_paranormal)  predicted rating 4.39
+                      4. book index 48 (Goodreads id 41804, fantasy_paranormal)  predicted rating 4.27
+                      5. book index 67 (Goodreads id 142296, fantasy_paranormal)  predicted rating 4.27
+                </pre>
+            </details>
 
             <h4>2.3.2 Evaluation</h4>
             <p>Evaluate the accuracy of the model.</p>
@@ -124,6 +282,14 @@
             <pre>
                 python -m recommender.Recommender --cluster-info --clusters 4
             </pre>
+
+            <details>
+            <summary>Click for sample output of evaluation</summary>
+                <p>Sample output of evaluation.</p>
+                <pre>
+                    SAMPLE
+                </pre>
+            </details>
         </section>
 
         <section class="section3">
@@ -197,10 +363,11 @@
 
             <h3>5.2 AI Usage Disclosure</h3>
             <p>
-                AI was used to make extensive edits to methods in Recommender.py and Clustering.py.<br>
+                AI was used to make extensive edits to certain files.<br>
                 Model: Claude AI, Sonnet 5.5, Free version
             </p>
 
+            <p>Major files edited by AI:</p>
             <dl>
                 <dt>Recommender.py</dt>
                 <dd>Generated</dd>

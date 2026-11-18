@@ -148,7 +148,8 @@ def rating_prediction(user_vectors: np.matrix | np.ndarray,
     """
 
     user_row = np.asarray(user_vectors)[user]
-    return _predict_from_row(user_row, item, np.asarray(similarity_matrix)[item], k)
+    item_similarities = similarity_matrix[item]
+    return _predict_from_row(user_row, item, item_similarities, k)
 
 
 def recommend(user_vectors: np.matrix | np.ndarray,
@@ -427,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--evaluate", action=argparse.BooleanOptionalAction, help="Run hold-out evaluation (MAE / RMSE)")
     ap.add_argument("--test-ratio", type=float, default=0.2, help="Share of each user's ratings withheld (default 0.2)")
     ap.add_argument("--seed", type=int, default=42, help="Random seed for the hold-out split (default 42)")
-    ap.add_argument("--clusters", type=int, default=0,
+    ap.add_argument("--clusters", type=int, default=-1,
                     help="Cluster users by taste and use cluster-specific similarities. N = number of clusters, "
                          "-1 = pick by silhouette score, 0 = off (default)")
     ap.add_argument("--cluster-blend", type=float, default=0.5,
@@ -436,23 +437,32 @@ def main(argv: list[str] | None = None) -> int:
 
     args = ap.parse_args(args=argv)
 
+    user_id: int = args.user
+    predict_for = args.predict_for
+    args_recommend = args.recommend
+    do_cluster_info = args.cluster_info
+    num_clusters = args.clusters
+
+
     # load data
     book_genre_map: pd.DataFrame = pd.read_csv(args.book_genre_map, index_col=0)
     user_id_map: pd.DataFrame = pd.read_csv(args.users, index_col=0)
     book_id_map: pd.DataFrame | None = _load_optional(args.book_ids, index_col=0)
 
     user_vectors: pd.DataFrame = pd.read_csv(args.user_data, header=None, index_col=None)  # vectors, no headers
-    ratings: np.ndarray = user_vectors.to_numpy(dtype=np.float64)
+    ratings: np.ndarray = user_vectors.to_numpy(dtype=int)
     n_users, n_books = ratings.shape
 
     similarity: np.ndarray | None = None
 
-    if args.cluster_info and args.clusters == 0:
+
+    if do_cluster_info and num_clusters == 0:
         ap.error("'--cluster-info' requires '--clusters' (a number, or -1 to choose automatically)")
 
     model: Clustering.ClusterModel | None = None
-    if args.clusters != 0 and (args.predict_for or args.recommend or args.cluster_info):
-        model = fit_cluster_model(ratings, args.clusters, seed=args.seed, blend=args.cluster_blend, global_sim=similarity)
+
+    if num_clusters != 0 and (predict_for or args_recommend or do_cluster_info):
+        model = fit_cluster_model(ratings, num_clusters, seed=args.seed, blend=args.cluster_blend)
 
         if model.silhouette:
             print("Silhouette score by k: " + ", ".join(f"k={k}: {v:.3f}" for k, v in model.silhouette.items()))
@@ -467,7 +477,7 @@ def main(argv: list[str] | None = None) -> int:
 
         return f"book index {idx} (Goodreads id {bid}{', ' + '/'.join(genres) if genres else ''})"
 
-    if args.cluster_info:
+    if do_cluster_info:
         print(f"Clusters ({len(model.combined)}):")
         counts = (ratings > 0).sum(axis=1)
 
@@ -496,46 +506,51 @@ def main(argv: list[str] | None = None) -> int:
         print("User Vectors (first 20):")
         display(user_vectors.head(20))
 
-    if args.predict_for:
-        if args.user is None or args.book is None:
+
+    if predict_for:
+        if user_id is None or args.book is None:
             ap.error("'--predict-for' requires both '--user' and '--book'; provide a user index and a book index")
 
-        if not (0 <= args.user < n_users) or not (0 <= args.book < n_books):
+        if not (0 <= user_id < n_users) or not (0 <= args.book < n_books):
             ap.error(f"user must be in [0, {n_users - 1}] and book in [0, {n_books - 1}]")
 
-        print(f"Predicted rating for {book_label(args.book)} by user {args.user}")
-        sim_for_user = similarity if model is None else model.similarity_for(args.user)
+        print(f"Predicted rating for {book_label(args.book)} by user {user_id}")
+        sim_for_user = model.similarity_for(user_id)
+
+        if sim_for_user is None:
+            raise Exception("Similarities did non populate!")
 
         if model is not None:
-            print(f"(user {args.user} is in cluster {int(model.labels[args.user])})")
+            print(f"(user {user_id} is in cluster {int(model.labels[user_id])})")
 
-        rating = rating_prediction(ratings, args.user, args.book, sim_for_user, args.k)
+        rating = rating_prediction(ratings, user_id, args.book, sim_for_user, args.k)
 
         print("Rating: " + ("no prediction possible (user has rated no similar book)" if rating is None else f"{rating:.2f}"))
 
-        actual = ratings[args.user, args.book]
-        if actual > 0:
-            print(f"(The user actually rated it {int(actual)}; the prediction ignores that rating.)")
+        actual = int(ratings[user_id, args.book])
 
-    if args.recommend:
-        if args.user is None:
+        if actual > 0:
+            print(f"(The user actually rated it {actual}; the prediction ignores that rating.)")
+
+    if args_recommend:
+        if user_id is None:
             ap.error("'--recommend' requires '--user'; provide a user index")
 
-        if not (0 <= args.user < n_users):
+        if not (0 <= user_id < n_users):
             ap.error(f"user must be in [0, {n_users - 1}]")
 
-        sim_for_user = similarity if model is None else model.similarity_for(args.user)
+        sim_for_user = similarity if model is None else model.similarity_for(user_id)
         if model is not None:
-            print(f"(user {args.user} is in cluster {int(model.labels[args.user])})")
+            print(f"(user {user_id} is in cluster {int(model.labels[user_id])})")
 
-        top_recs = recommend(ratings, args.user, sim_for_user, args.top_n, args.k)
+        top_recs = recommend(ratings, user_id, sim_for_user, args.top_n, args.k)
 
         if isinstance(top_recs, str):
             print(top_recs)
         elif not top_recs:
             print("No recommendations: no unread book is similar to anything this user has rated.")
         else:
-            print(f"Top {len(top_recs)} recommendations for user {args.user}:")
+            print(f"Top {len(top_recs)} recommendations for user {user_id}:")
             for rank, (idx, score) in enumerate(top_recs, start=1):
                 print(f"  {rank}. {book_label(idx)}  predicted rating {score:.2f}")
 
@@ -545,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Evaluating: test ratio={args.test_ratio}, k={args.k}, seed={args.seed}, "
               f"similarities={'saved (leaky)' if args.static_similarity else 'rebuilt from training ratings'}")
 
-        res = evaluate(ratings, args.test_ratio, args.k, args.seed, sim_arg, args.clusters, args.cluster_blend)
+        res = evaluate(ratings, args.test_ratio, args.k, args.seed, sim_arg, num_clusters, args.cluster_blend)
 
         print(f"Test ratings:        {res['n_test']}")
         print(f"Coverage:            {res['coverage']:.1%} (predictions made by the item-based model itself)")
