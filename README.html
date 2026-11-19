@@ -287,7 +287,49 @@
             <summary>Click for sample output of evaluation</summary>
                 <p>Sample output of evaluation.</p>
                 <pre>
-                    SAMPLE
+                    >>> python -m recommender.Recommender --evaluate --test-ratio 0.2 --k 10
+
+                    Evaluating: test ratio=0.2, k=10, seed=42
+                    Test ratings:        3745
+                    Coverage:            97.3% (predictions made by the item-based model itself)
+                                             MAE    RMSE
+                    Item-based CF          0.680   0.887
+                    Cluster-aware CF       0.685   0.896   (2 clusters, sizes [180, 500], blend 0.5, coverage 97.3%)
+                    Baseline: user mean    0.736   0.946
+                    Baseline: item mean    0.759   0.952
+                </pre>
+                <pre>
+                    >>> python -m recommender.Recommender --evaluate --clusters 4
+
+                    Evaluating: test ratio=0.2, k=10
+                    Test ratings:        3745
+                    Coverage:            97.3% (predictions made by the item-based model itself)
+                                             MAE    RMSE
+                    Item-based CF          0.680   0.887
+                    Cluster-aware CF       0.688   0.901   (4 clusters, sizes [162, 95, 299, 124], blend 0.5, coverage 97.3%)
+                    Baseline: user mean    0.736   0.946
+                    Baseline: item mean    0.759   0.952
+                </pre>
+                <pre>
+                    >>> python -m recommender.Recommender --cluster-info --clusters 4
+
+                    Clusters (4):
+                      cluster 0: 307 users, avg 29 ratings each, mean rating 4.25
+                          top: book index 181 (Goodreads id 8803932, fantasy_paranormal)  cluster mean 4.88 (8 raters)
+                          top: book index 87 (Goodreads id 862041, fantasy_paranormal)  cluster mean 4.86 (28 raters)
+                          top: book index 293 (Goodreads id 13508069, fantasy_paranormal)  cluster mean 4.86 (7 raters)
+                      cluster 1: 129 users, avg 29 ratings each, mean rating 3.94
+                          top: book index 8 (Goodreads id 30, fantasy_paranormal)  cluster mean 4.81 (16 raters)
+                          top: book index 68 (Goodreads id 186074, fantasy_paranormal)  cluster mean 4.78 (41 raters)
+                          top: book index 9 (Goodreads id 33, fantasy_paranormal)  cluster mean 4.73 (52 raters)
+                      cluster 2: 95 users, avg 32 ratings each, mean rating 3.83
+                          top: book index 8 (Goodreads id 30, fantasy_paranormal)  cluster mean 4.82 (11 raters)
+                          top: book index 40 (Goodreads id 18512, fantasy_paranormal)  cluster mean 4.79 (33 raters)
+                          top: book index 9 (Goodreads id 33, fantasy_paranormal)  cluster mean 4.78 (27 raters)
+                      cluster 3: 149 users, avg 30 ratings each, mean rating 3.93
+                          top: book index 87 (Goodreads id 862041, fantasy_paranormal)  cluster mean 5.00 (17 raters)
+                          top: book index 66 (Goodreads id 136251, fantasy_paranormal)  cluster mean 4.84 (141 raters)
+                          top: book index 4 (Goodreads id 6, fantasy_paranormal)  cluster mean 4.79 (143 raters)
                 </pre>
             </details>
         </section>

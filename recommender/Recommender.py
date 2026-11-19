@@ -557,8 +557,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.evaluate:
         sim_arg = None
 
-        print(f"Evaluating: test ratio={args.test_ratio}, k={args.k}, seed={args.seed}, "
-              f"similarities={'saved (leaky)' if args.static_similarity else 'rebuilt from training ratings'}")
+        print(f"Evaluating: test ratio={args.test_ratio}, k={args.k}")
 
         res = evaluate(ratings, args.test_ratio, args.k, args.seed, sim_arg, num_clusters, args.cluster_blend)
 
