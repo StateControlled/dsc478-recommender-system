@@ -54,11 +54,14 @@ def user_features(ratings: np.ndarray,
 
     result: np.ndarray = np.asarray(ratings, dtype=np.float64)
 
-    if center: # subtract each user's mean rating from their rated entries
+    # subtract each user's mean rating from their rated entries
+    if center:
         mask = result > 0
         means = result.sum(axis=1) / np.maximum(mask.sum(axis=1), 1)
         result = np.where(mask, result - means[:, None], 0.0)
 
+    # project onto SVD components
+    # SVD = Singular Value Decomposition
     if n_components < min(result.shape):
         result = TruncatedSVD(n_components=n_components, random_state=RANDOM_STATE).fit_transform(result)
 
@@ -77,6 +80,7 @@ def cluster_users(ratings: np.ndarray,
 
     features: np.ndarray = user_features(ratings, center)
     km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, max_iter=300, random_state=seed)
+    # Compute cluster centers and predict cluster index for each sample
     labels = km.fit_predict(features)
 
     return labels, km
@@ -92,9 +96,10 @@ def choose_k(ratings: np.ndarray,
     :return: the best k and the silhouette score of every k
     """
 
-    features:np.ndarray = user_features(ratings, center)
+    features: np.ndarray = user_features(ratings, center)
     scores: dict[int, float] = {}
 
+    # k values 2 - 8 by default.
     for k in k_values:
         if k >= len(features):
             break

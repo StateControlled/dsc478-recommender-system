@@ -77,7 +77,7 @@
             <p>
                 By default, <i>targets.txt</i> will only point the system to look at the 'fantasy_paranormal' genre.
                 This is to focus the system and (hopefully) influence more accurate predictions.
-                Additional genres, listed above, may be added manually to expand the systems knowledge.
+                Additional genres, listed above, may be added manually to expand the system's knowledge.
             </p>
 
             <h4>2.2.1 Download the data</h4>
@@ -312,25 +312,17 @@
                     Baseline: item mean    0.759   0.952
                 </pre>
                 <pre>
-                    >>> python -m recommender.Recommender --cluster-info --clusters 4
+                    >>> python -m recommender.Recommender --cluster-info --clusters 2
 
-                    Clusters (4):
-                      cluster 0: 307 users, avg 29 ratings each, mean rating 4.25
-                          top: book index 181 (Goodreads id 8803932, fantasy_paranormal)  cluster mean 4.88 (8 raters)
-                          top: book index 87 (Goodreads id 862041, fantasy_paranormal)  cluster mean 4.86 (28 raters)
-                          top: book index 293 (Goodreads id 13508069, fantasy_paranormal)  cluster mean 4.86 (7 raters)
-                      cluster 1: 129 users, avg 29 ratings each, mean rating 3.94
-                          top: book index 8 (Goodreads id 30, fantasy_paranormal)  cluster mean 4.81 (16 raters)
-                          top: book index 68 (Goodreads id 186074, fantasy_paranormal)  cluster mean 4.78 (41 raters)
-                          top: book index 9 (Goodreads id 33, fantasy_paranormal)  cluster mean 4.73 (52 raters)
-                      cluster 2: 95 users, avg 32 ratings each, mean rating 3.83
-                          top: book index 8 (Goodreads id 30, fantasy_paranormal)  cluster mean 4.82 (11 raters)
-                          top: book index 40 (Goodreads id 18512, fantasy_paranormal)  cluster mean 4.79 (33 raters)
-                          top: book index 9 (Goodreads id 33, fantasy_paranormal)  cluster mean 4.78 (27 raters)
-                      cluster 3: 149 users, avg 30 ratings each, mean rating 3.93
-                          top: book index 87 (Goodreads id 862041, fantasy_paranormal)  cluster mean 5.00 (17 raters)
-                          top: book index 66 (Goodreads id 136251, fantasy_paranormal)  cluster mean 4.84 (141 raters)
-                          top: book index 4 (Goodreads id 6, fantasy_paranormal)  cluster mean 4.79 (143 raters)
+                    Clusters (2):
+                      cluster 0: 199 users, avg 31 ratings each, mean rating 3.85
+                          top: book index 54 (Goodreads id 49852, fantasy_paranormal)  cluster mean 5.00 (6 raters)
+                          top: book index 8 (Goodreads id 30, fantasy_paranormal)  cluster mean 4.82 (17 raters)
+                          top: book index 66 (Goodreads id 136251, fantasy_paranormal)  cluster mean 4.71 (182 raters)
+                      cluster 1: 481 users, avg 29 ratings each, mean rating 4.15
+                          top: book index 54 (Goodreads id 49852, fantasy_paranormal)  cluster mean 4.75 (8 raters)
+                          top: book index 68 (Goodreads id 186074, fantasy_paranormal)  cluster mean 4.71 (112 raters)
+                          top: book index 293 (Goodreads id 13508069, fantasy_paranormal)  cluster mean 4.70 (10 raters)
                 </pre>
             </details>
         </section>

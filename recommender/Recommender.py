@@ -495,16 +495,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"      top: {book_label(int(i))}  cluster mean {means[i]:.2f} ({int(raters[i])} raters)")
 
     if args.list_user_ids:
-        print("User IDs (first 20):")
-        display(user_id_map.head(20))
+        print("User IDs:")
+        display(user_id_map)
 
     if args.list_book_ids:
-        print("Book IDs (first 20):")
-        display(book_id_map.head(20) if book_id_map is not None else book_genre_map.head(20))
+        print("Book IDs:")
+        display(book_id_map)
 
     if args.print_matrix:
-        print("User Vectors (first 20):")
-        display(user_vectors.head(20))
+        print("User Vectors:")
+        display(user_vectors)
 
 
     if predict_for:
