@@ -327,6 +327,7 @@ def evaluate(user_vectors: np.matrix | np.ndarray,
     if not test:
         raise ValueError("No test cases: users have too few ratings for this test_ratio.")
 
+    # similarity matrix
     sim = build_similarity_matrix(train) if similarity_matrix is None else np.asarray(similarity_matrix)
 
     model = None
@@ -368,10 +369,10 @@ def evaluate(user_vectors: np.matrix | np.ndarray,
 
     actual = np.array(actual)
 
-    def mae(p):
+    def mae(p) -> float:
         return float(np.mean(np.abs(np.array(p) - actual)))
 
-    def rmse(p):
+    def rmse(p) -> float:
         return float(np.sqrt(np.mean((np.array(p) - actual) ** 2)))
 
     result = {
@@ -428,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--evaluate", action=argparse.BooleanOptionalAction, help="Run hold-out evaluation (MAE / RMSE)")
     ap.add_argument("--test-ratio", type=float, default=0.2, help="Share of each user's ratings withheld (default 0.2)")
     ap.add_argument("--seed", type=int, default=42, help="Random seed for the hold-out split (default 42)")
-    ap.add_argument("--clusters", type=int, default=-1,
+    ap.add_argument("--clusters", type=int, default=2,
                     help="Cluster users by taste and use cluster-specific similarities. N = number of clusters, "
                          "-1 = pick by silhouette score, 0 = off (default)")
     ap.add_argument("--cluster-blend", type=float, default=0.5,
@@ -453,6 +454,7 @@ def main(argv: list[str] | None = None) -> int:
     ratings: np.ndarray = user_vectors.to_numpy(dtype=int)
     n_users, n_books = ratings.shape
 
+    # similarity matrix
     similarity: np.ndarray | None = None
 
 

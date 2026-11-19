@@ -14,7 +14,7 @@ DO_RANGE = False
 @dataclass
 class ClusterModel:
     """
-    Represents users grouped by taste, with one book-similarity matrix per group.
+    Data storage class. Represents users grouped by taste, with one book-similarity matrix per group.
 
     labels:     cluster of every user (row order of the rating matrix)
     combined:   cluster - blended books x books similarity matrix used to predict for that cluster's users
@@ -104,11 +104,13 @@ def choose_k(ratings: np.ndarray,
         if k >= len(features):
             break
 
+        # Compute cluster centers and predict cluster index for each sample
         labels = KMeans(n_clusters=k, init="k-means++", n_init=5, max_iter=300, random_state=seed).fit_predict(features)
 
         if len(np.unique(labels)) < 2:
             continue
 
+        # mean Silhouette Coefficient over all samples.
         scores[k] = float(silhouette_score(features, labels, sample_size=min(len(features), 2000), random_state=seed))
 
     if not scores:
