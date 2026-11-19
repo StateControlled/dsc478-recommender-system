@@ -6,6 +6,8 @@
 # https://github.com/MengtingWan/goodreads
 # according to the terms of the Apache License 2.0 http://www.apache.org/licenses/
 
+
+
 ###############################################################
 
 import pandas as pd
@@ -19,14 +21,19 @@ from recommender import Common
 
 
 class DataObject:
-    def __init__(self, genre: str, books_file: str, interactions_file: str, reviews_file: str):
+    # def __init__(self, genre: str, books_file: str, interactions_file: str, reviews_file: str):
+    #     self.genre: str = genre
+    #     self.books_file: str = books_file
+    #     self.interactions_file: str = interactions_file
+    #     self.reviews_file: str = reviews_file
+
+    def __init__(self, genre: str, interactions_file: str):
         self.genre: str = genre
-        self.books_file: str = books_file
         self.interactions_file: str = interactions_file
-        self.reviews_file: str = reviews_file
 
     def __str__(self) -> str:
-        return f"Genre:{self.genre} Books:{self.books_file} Interactions:{self.interactions_file} Reviews:{self.reviews_file}"
+        # return f"Genre:{self.genre} Books:{self.books_file} Interactions:{self.interactions_file} Reviews:{self.reviews_file}"
+        return f"Genre:{self.genre} Interactions:{self.interactions_file}"
 
 
 def _set_file_names(file_name: str) -> dict[str, str]:
@@ -90,11 +97,12 @@ def _define_filenames_genre(genre_list_file: str) -> list[DataObject]:
     res: list[DataObject] = []
 
     for line in temp:
-        file_book: str = f"goodreads_books_{line}.json.gz"
+        # file_book: str = f"goodreads_books_{line}.json.gz"
         file_interaction: str = f"goodreads_interactions_{line}.json.gz"
-        file_review: str = f"goodreads_reviews_{line}.json.gz"
+        # file_review: str = f"goodreads_reviews_{line}.json.gz"
 
-        item = DataObject(line, file_book, file_interaction, file_review)
+        # item = DataObject(line, file_book, file_interaction, file_review)
+        item = DataObject(line, file_interaction)
 
         res.append(item)
 
@@ -172,9 +180,9 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Target files:")
     for t in genre_targets:
-        print(f"{t.books_file}")
+        # print(f"{t.books_file}")
         print(f"{t.interactions_file}")
-        print(f"{t.reviews_file}")
+        # print(f"{t.reviews_file}")
 
     print()
     print("Downloading data...")
@@ -192,10 +200,10 @@ def main(argv: list[str] | None = None) -> int:
     count: int = 0
     total: int = 0
     for target in genre_targets:
-        total += 3
-        count += _do_download(out_dir, target.books_file, genre_url_mapping)
+        total += 1
+        # count += _do_download(out_dir, target.books_file, genre_url_mapping)
         count += _do_download(out_dir, target.interactions_file, genre_url_mapping)
-        count += _do_download(out_dir, target.reviews_file, genre_url_mapping)
+        # count += _do_download(out_dir, target.reviews_file, genre_url_mapping)
 
     for mapping in map_targets:
         total += 1
